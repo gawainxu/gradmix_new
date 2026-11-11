@@ -150,7 +150,7 @@ class paderborn_machine(data.Dataset):
 if __name__ == "__main__":
     
     root_path = "../datasets/"
-    train = False
+    train = True
     split_mode = "window"
     win_len = 4096
     step = 100
