@@ -2,6 +2,7 @@ import numpy as np
 import os
 import scipy.io
 
+import torch
 import torchvision.transforms as transforms
 from util import common_elements, TwoCropTransform
 import torch.utils.data as data
@@ -63,6 +64,7 @@ class paderborn_machine(data.Dataset):
             class_data = self.data[class_name]
             class_label = self.data[class_name]
             if seperate_conditions:
+                # extract the required data into class_data and class_label (1D list)
                 class_data = class_data[self.condition_name][self.signal_name]
                 class_label = class_label[self.condition_name]["label"]
                 self.output_seqs.extend(class_data)
@@ -121,9 +123,12 @@ class paderborn_machine(data.Dataset):
 
         new_list_of_seqs = []
         for seq in list_of_seqs:
-            seq = np.squeeze(seq)
-            for i in range(0, len(seq), self.step):
-                new_list_of_seqs.append(seq[i:i+self.win_len])
+            #seq = np.squeeze(seq)
+            len_seq = seq.shape[-1]
+            for i in range(0, len_seq, self.step):
+                if i + self.win_len > len_seq:
+                    break
+                new_list_of_seqs.append(seq[:, i:i+self.win_len])
 
         return new_list_of_seqs
 
@@ -145,12 +150,68 @@ class paderborn_machine(data.Dataset):
 
         return len(self.output_seqs)
 
+class BearingContrastiveViews:
+    def __init__(
+        self,
+        crop_length=4096,
+        mode="scale_noise",
+        gain_range=(0.9, 1.1),
+        snr_db_range=(25.0, 35.0),
+        gain_prob=0.5,
+        noise_prob=0.5,
+    ):
+        if mode not in {"crop", "crop_scale",
+                        "crop_scale_noise", "scale_noise"}:
+            raise ValueError(f"Unknown augmentation mode: {mode}")
+        if crop_length < 1:
+            raise ValueError("crop_length must be positive")
+
+        self.crop_length = crop_length
+        self.mode = mode
+        self.gain_range = gain_range
+        self.snr_db_range = snr_db_range
+        self.gain_prob = gain_prob
+        self.noise_prob = noise_prob
+
+    def _make_view(self, x):
+
+        if self.mode in ["crop", "crop_scale", "crop_scale_noise"]:
+            max_start = x.shape[-1] - self.crop_length
+            start = torch.randint(max_start + 1, ()).item()
+            view = x[:, start : start + self.crop_length].clone()
+        else:
+            view = x.clone()
+
+        if self.mode != "crop" and torch.rand(()).item() < self.gain_prob:
+            gain = view.new_empty(()).uniform_(*self.gain_range)
+            view = view * gain
+
+        if (
+            self.mode == "crop_scale_noise" or self.mode == "scale_noise"
+            and torch.rand(()).item() < self.noise_prob
+        ):
+            snr_db = view.new_empty(()).uniform_(*self.snr_db_range)
+            centered = view - view.mean(dim=-1, keepdim=True)
+            rms = centered.square().mean(dim=-1, keepdim=True).sqrt()
+            noise_std = rms * 10.0 ** (-snr_db / 20.0)
+            view = view + torch.randn_like(view) * noise_std
+
+        return view
+
+    def __call__(self, x):
+
+        x = torch.from_numpy(x)
+        x = x.to(dtype=torch.float32)
+        x1 = self._make_view(x)
+        x2 = self._make_view(x)
+
+        return x1, x2
 
 
 if __name__ == "__main__":
     
     root_path = "../datasets/"
-    train = True
+    train = False
     split_mode = "window"
     win_len = 4096
     step = 100

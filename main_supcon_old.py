@@ -44,7 +44,7 @@ def parse_option():
                         help='save frequency')
     parser.add_argument('--batch_size', type=int, default=256,
                         help='batch_size')
-    parser.add_argument('--num_workers', type=int, default=4,
+    parser.add_argument('--num_workers', type=int, default=0,
                         help='num of workers to use')
     parser.add_argument('--epochs', type=int, default=100,
                         help='number of training epochs')
@@ -63,9 +63,8 @@ def parse_option():
                         help='momentum')
 
     # model dataset
-    parser.add_argument('--model', type=str, default='resnet50_pretrain',
-                        choices=["resnet18", "resnet34", "resnet50_pretrain", "vgg16", "vgg11", "vgg_s_bn", "simCNN", "MLP"])
-    parser.add_argument('--datasets', type=str, default='cars', help='dataset')
+    parser.add_argument('--model', type=str, default='basic_cnn')
+    parser.add_argument('--datasets', type=str, default='paderborn', help='dataset')
     parser.add_argument('--data_folder', type=str, default=None, help='path to custom dataset')
     parser.add_argument("--num_channels", type=int, default=1)
     parser.add_argument("--last_model_path", type=str, default=None)
@@ -103,10 +102,12 @@ def parse_option():
     parser.add_argument("--momentum_moco", type=float, default=0.999)
 
     # mixup parameters
+    parser.add_argument("--mixup_positive", type=bool, default=False)
+    parser.add_argument("--positive_method", type=str, default="layersaliencymix",
+                        choices=["max_similarity", "min_similarity", "random", "prob_similarity", "reverse",
+                                 "saliencymix", "layersaliencymix", "cutmix", "cv2saliency"])
     parser.add_argument("--alpha_vanilla", type=float, default=10)
     parser.add_argument("--beta_vanilla", type=float, default=0.3)
-    parser.add_argument("--positive_method", type=str, default="layersaliencymix",
-                        choices=["max_similarity", "min_similarity", "random", "prob_similarity", "reverse", "saliencymix", "layersaliencymix", "cutmix", "cv2saliency"])
     parser.add_argument("--use_cuda", type=bool, default=True)
 
     opt = parser.parse_args()
@@ -141,9 +142,6 @@ def parse_option():
         opt.model_name += "_SimCLR_CE_" + str(opt.method_lam) + "_"
 
     opt.model_name += 'trail_{}'.format(opt.trail) + "_" + str(opt.feat_dim) + "_" + str(opt.batch_size)
-        
-    if opt.augmix:
-        opt.model_name += "_augmix"
 
     if opt.old_augmented:
         opt.model_name += "_old_augmented"
@@ -191,17 +189,17 @@ def set_loader(opt):
     train_sampler = None
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=opt.batch_size, shuffle=True,
                                                 num_workers=opt.num_workers, pin_memory=True, sampler=train_sampler, drop_last=True,
-                                                persistent_workers = True)
+                                                persistent_workers = False)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1,
                                               shuffle=False, num_workers=opt.num_workers, pin_memory=True,
-                                              sampler=train_sampler, drop_last=True, persistent_workers=True)
+                                              sampler=train_sampler, drop_last=True, persistent_workers=False)
 
     return train_loader, test_loader
 
 
 def set_model(opt):
 
-    if opt.method == "basic_cnn":
+    if opt.method == "SupCon":
         model = basic_CNN(feature_dim=opt.feat_dim, in_channels=opt.num_channels)
             
         criterion1 = SupConLoss(temperature=opt.temp)

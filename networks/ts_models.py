@@ -5,7 +5,7 @@ import torch.nn.functional as F
 
 class basic_CNN(nn.Module):
 
-    def __init__(self, embedding_dim=32, in_channels=2, num_classes=3):
+    def __init__(self, feature_dim=32, in_channels=2, num_classes=3):
         super().__init__()
 
         self.features = (nn.Sequential(
@@ -17,8 +17,8 @@ class basic_CNN(nn.Module):
             nn.Flatten(start_dim=1),
         ))
 
-        self.fc1 = nn.Linear(64, embedding_dim)
-        self.classifier = nn.Linear(embedding_dim, num_classes)
+        self.fc1 = nn.Linear(64, feature_dim)
+        self.classifier = nn.Linear(feature_dim, num_classes)
 
     def encode(self, x, normalize=False):
         """x: [batch_size, 2, signal_length]."""
@@ -29,10 +29,10 @@ class basic_CNN(nn.Module):
 
         return embedding
 
-    def forward(self, x, return_embedding=False):
+    def forward(self, x, return_embedding=True):
         embedding = self.encode(x)
         logits = self.classifier(embedding)
 
         if return_embedding:
-            return logits, embedding
+            return embedding
         return logits

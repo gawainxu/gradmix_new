@@ -8,23 +8,23 @@ Created on Mon Oct 25 21:42:16 2021
 
 osr_splits_inliers = {
     # Training classes
-    'paderborn': [
-    ],}
+    'paderborn': [list(range(32)),
+                 list(range(16))]}
 
 
 osr_splits_outliers = {
     # testing classes
-    "paderborn": [],
+    "paderborn": [list(range(32)),
+                 list(range(16))]
 }
 
 
 
 import random
-from data_loader import paderborn_machine
+from data_loader import paderborn_machine, BearingContrastiveViews
 import torchvision
 import torch
-from util import TwoCropTransform
-from torchvision import transforms, datasets
+from torchvision import transforms
 import torch.nn.functional as F
 from config import data_root
 from losses import SupConLoss
@@ -48,7 +48,6 @@ data_function_mapping_outliers = {"paderborn": paderborn_machine, }
 
 
 mean_mapping = {"paderborn":  (0.1307,),}
-
 std_mapping = {"paderborn":  (0.1307,),}
 
 
@@ -66,80 +65,60 @@ def label_to_dict(labels, outliers=False):
     return label_dict
 
 
-def get_train_datasets(opt, class_idx=None, last_features_list=None, last_feature_labels_list=None, last_model=None):
-
-    mean = mean_mapping[opt.datasets]
-    std = std_mapping[opt.datasets]
-    normalize = transforms.Normalize(mean=mean, std=std)
-
-    if opt.action == "training_supcon" or opt.action == "trainging_linear":
-        train_transform = transforms.Compose([transforms.ToTensor(),
-                                                  normalize,])
-    else:
-        train_transform = transforms.Compose([transforms.ToTensor(), normalize])
+def get_train_datasets(opt):
 
     data_fun = data_function_mapping[opt.datasets]
     label_dict = label_to_dict(osr_splits_inliers[opt.datasets][opt.trail])
 
     if opt.action == "training_supcon":
-        train_transform = TwoCropTransform(train_transform)
-    
-    if class_idx is not None:
-        classes = [osr_splits_inliers[opt.datasets][opt.trail][class_idx]]
+        # TODO settings for train_transform
+        train_transform = BearingContrastiveViews()
     else:
-        classes = osr_splits_inliers[opt.datasets][opt.trail]
+        train_transform = None
 
+    classes = osr_splits_inliers[opt.datasets][opt.trail]
+
+    # TODO settings for data_fun
     train = True
-    train_dataset = data_fun(root=data_root, train=train, opt=opt,
-                             classes=classes, download=False,
-                             transform=train_transform, label_dict=label_dict)
+    train_dataset = data_fun(root=data_root, train=train, transform=train_transform, target_transform=None,
+                             split_mode="window", win_len=4068, step=100, classes=classes,
+                             seperate_conditions=False, condition_name="", signal_name="current1")
     print("dataset size", len(train_dataset))
     return train_dataset
 
 
-def get_test_datasets(opt, class_idx = None):
+def get_test_datasets(opt):
 
-    mean = mean_mapping[opt.datasets]
-    std = std_mapping[opt.datasets]
-    normalize = transforms.Normalize(mean=mean, std=std)
-
-    test_transform = transforms.Compose([transforms.ToTensor(), normalize])
     data_fun = data_function_mapping_testing[opt.datasets]
-    label_dict = label_to_dict(osr_splits_inliers[opt.datasets][opt.trail])
-
-    if class_idx is not None:
-        classes = [osr_splits_inliers[opt.datasets][opt.trail][class_idx]]
-    else:
-        classes = osr_splits_inliers[opt.datasets][opt.trail]
+    classes = osr_splits_inliers[opt.datasets][opt.trail]
     print(classes)
     train = False
-    test_dataset = data_fun(root=data_root, train=train, opt=opt,
-                            classes=classes, download=False,
-                            transform=test_transform, label_dict=label_dict)
+    if opt.action == "training_supcon":
+        # TODO settings for train_transform and dataset !!!!!!!!!!!!!!
+        test_transform = BearingContrastiveViews()
+    else:
+        test_transform = None
+    test_dataset = data_fun(root=data_root, train=train, transform=test_transform, target_transform=None,
+                             split_mode="window", win_len=4068, step=100, classes=classes,
+                             seperate_conditions=False, condition_name="", signal_name="current1")
     print("dataset size", len(test_dataset))
+
     return test_dataset
 
 
 
-def get_outlier_datasets(opt, class_idx=None):
+def get_outlier_datasets(opt):
 
-    mean = mean_mapping[opt.datasets]
-    std = std_mapping[opt.datasets]
-    normalize = transforms.Normalize(mean=mean, std=std)
-
-    test_transform = transforms.Compose([transforms.ToTensor(), normalize])
-
+    test_transform = None
     data_fun = data_function_mapping_outliers[opt.datasets]
     label_dict = label_to_dict(osr_splits_outliers[opt.datasets][opt.trail], outliers=True)
-    if class_idx is not None:
-        classes = [osr_splits_outliers[opt.datasets][opt.trail][class_idx]]
-    else:
-        classes = osr_splits_outliers[opt.datasets][opt.trail]
+    classes = osr_splits_outliers[opt.datasets][opt.trail]
     print(classes)
+
     train = False
-    outlier_dataset = data_fun(root=data_root, train=train,
-                               classes=classes, download=True, 
-                               transform=test_transform, label_dict=label_dict)
+    outlier_dataset = data_fun(root=data_root, train=train, transform=test_transform, target_transform=None,
+                             split_mode="window", win_len=4068, step=100, classes=classes,
+                             seperate_conditions=False, condition_name="", signal_name="current1")
     print("dataset size", len(outlier_dataset))
     return outlier_dataset
 
@@ -763,15 +742,13 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser('argument for training')
-    parser.add_argument('--dataset', type=str, default=10)
-    parser.add_argument('--datasets', type=str, default='aircraft',
-                        choices=["cifar-10-100-10", "cifar-10-100-50", 'cifar10', "cifar100", "tinyimgnet",
-                                 "imagenet100", "imagenet100_m", 'mnist', "svhn", "cub", "aircraft", "FUB"],
+    parser.add_argument('--trail', type=int, default=0)
+    parser.add_argument('--datasets', type=str, default='paderborn',
                         help='dataset')
-    parser.add_argument("--augmix", type=bool, default=False)
     parser.add_argument("--action", type=str, default="training_supcon",
                         choices=["training_supcon", "trainging_linear", "testing_known", "testing_unknown",
                                  "feature_reading"])
     opt = parser.parse_args()
 
-    dataset = get_train_datasets(opt)
+    dataset = get_test_datasets(opt)
+    ts, l = dataset[0]
