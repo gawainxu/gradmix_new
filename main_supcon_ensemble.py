@@ -276,6 +276,7 @@ def main():
 
     # build model and criterion
     model, criterions = set_model(opt)
+    linear=None
 
     # build optimizer, TODO check here
     optimizer = set_optimizer(opt, model)
@@ -302,12 +303,12 @@ def main():
         if epoch % opt.save_freq == 0:
             save_file = os.path.join(
                 opt.save_folder, 'ckpt_epoch_{epoch}.pth'.format(epoch=epoch))
-            save_model(model, optimizer, opt, epoch, save_file)
+            save_model(model, linear, optimizer, opt, opt.epochs, save_file)
 
     # save the last model
     save_file = os.path.join(
         opt.save_folder, 'last.pth')
-    save_model(model, optimizer, opt, opt.epochs, save_file)
+    save_model(model, linear, optimizer, opt, opt.epochs, save_file)
     with open(os.path.join(opt.save_folder, "loss_" + str(opt.trail)), "wb") as f:
         pickle.dump((losses, losses1, losses2, losses3), f)
 
