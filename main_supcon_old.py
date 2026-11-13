@@ -11,17 +11,13 @@ import numpy as np
 import torch
 import torch.backends.cudnn as cudnn
 
-from util import TwoCropTransform, AverageMeter
+from util import AverageMeter
 from util import adjust_learning_rate
 from util import set_optimizer, save_model
 from datautil import vanilla_mixup, salient_cutmix, vanilla_cutmix
 from datautil import num_inlier_classes_mapping
-from networks.resnet_big import SupConResNet, LinearClassifier
-from networks.resnet_big import ResNet_Pretrain, MoCoResNet
 from networks.ts_models import basic_CNN
 
-from networks.mlp import SupConMLP
-from networks.vgg import SupConVGG
 from losses import SupConLoss
 from datautil import get_train_datasets, get_test_datasets
 
@@ -199,7 +195,7 @@ def set_loader(opt):
 
 def set_model(opt):
 
-    if opt.method == "SupCon":
+    if opt.model == "basic_cnn":
         model = basic_CNN(feature_dim=opt.feat_dim, in_channels=opt.num_channels)
             
         criterion1 = SupConLoss(temperature=opt.temp)
