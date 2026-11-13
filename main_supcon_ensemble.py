@@ -64,7 +64,6 @@ def parse_option():
     parser.add_argument("--num_channels", type=int, default=1)
 
     # method
-    parser.add_argument('--method', type=str, default='SupCon', help='choose method')
     parser.add_argument("--trail", type=int, default=0, choices=[0, 1, 2, 3, 4, 5], help="index of repeating training")
     parser.add_argument("--action", type=str, default="training_supcon",
                         choices=["training_supcon", "trainging_linear", "testing_known", "testing_unknown",
@@ -273,12 +272,12 @@ def main():
     opt = parse_option()
 
     # build data loader
-    train_loader = set_loader(opt)
+    train_loader, test_loader = set_loader(opt)
 
     # build model and criterion
     model, criterions = set_model(opt)
 
-    # build optimizer
+    # build optimizer, TODO check here
     optimizer = set_optimizer(opt, model)
 
     losses = []
