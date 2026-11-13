@@ -130,8 +130,6 @@ def parse_option():
 
     if opt.method == "SupCon":
         opt.model_name += "_SupCon_"
-    if opt.method == "MoCo":
-        opt.model_name += "_MoCo_"
     elif opt.method == "SimCLR":
         opt.model_name += "_SimCLR_" + str(opt.method_gama) + "_" + str(opt.method_lam) + "_" + str(opt.temp) + "_"
     elif opt.method == "SimCLR_CE":

@@ -434,6 +434,60 @@ class MoCoResNet(nn.Module):
             return feat_q
 
 
+class SupConResNet_MultiHead_remix(nn.Module):
+    """backbone + projection head"""
+
+    def __init__(self, name='resnet18', output_dim=512, feat_dim=128, in_channels=3):
+        super(SupConResNet_MultiHead_remix, self).__init__()
+        model_fun, dim_in = model_dict[name]
+        self.encoder = model_fun(in_channels=in_channels)
+
+        self.output_head1 = nn.Sequential(
+            nn.Linear(output_dim, output_dim),
+            nn.ReLU(inplace=True),
+            nn.Linear(output_dim, feat_dim)
+        )
+
+        self.output_head2 = nn.Sequential(
+            nn.Linear(output_dim, output_dim),
+            nn.ReLU(inplace=True),
+            nn.Linear(output_dim, feat_dim)
+        )
+
+        self.output_head3 = nn.Sequential(
+            nn.Linear(output_dim, output_dim),
+            nn.ReLU(inplace=True),
+            nn.Linear(output_dim, feat_dim)
+        )
+
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+            elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+                nn.init.constant_(m.bias, 0)
+
+    def _make_layer(self, block, planes, num_blocks, stride):
+        strides = [stride] + [1] * (num_blocks - 1)
+        layers = []
+        for i in range(num_blocks):
+            stride = strides[i]
+            layers.append(block(self.in_planes, planes, stride))
+            self.in_planes = planes * block.expansion
+        return nn.Sequential(*layers)
+
+
+    def forward(self, x):
+
+        out = self.encoder(x)
+        feat1 = F.normalize(self.output_head1(out), dim=1)
+        feat2 = F.normalize(self.output_head2(out), dim=1)
+        feat3 = F.normalize(self.output_head3(out), dim=1)
+
+        return feat1, feat2, feat3
+
+
 class SupCEResNet(nn.Module):
     """encoder + classifier"""
     def __init__(self, name='resnet18', in_channels=3, num_classes=10):
