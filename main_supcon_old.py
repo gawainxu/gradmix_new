@@ -340,6 +340,8 @@ def train(train_loader, model, linear, criterion1, criterion2, optimizer, epoch,
 
             loss_sup = loss1 = criterion2(features, labels)
             loss_ssl = loss2 = criterion1(features)
+            losses_ssl.update(loss_ssl.detach().cpu().item())
+            losses_sup.update(loss_sup.detach().cpu().item())
 
             if opt.mixup_positive:
                 if opt.positive_method == "cutmix" or opt.positive_method == "snapmix":
@@ -366,7 +368,8 @@ def train(train_loader, model, linear, criterion1, criterion2, optimizer, epoch,
                 mixed_positive_features = torch.cat(
                         [mixed_positive_features1.unsqueeze(1), mixed_positive_features2.unsqueeze(1)], dim=1)
                 loss_ssl_mix = criterion1(features,
-                                            features_positive=mixed_positive_features)  # criterion1(mixed_positive_features) #  !!!!!!!!!! TODO
+                                            features_positive=mixed_positive_features)  # criterion1(mixed_positive_features) #  !!!!!!!!!! TODO maybe it is too hard to find the similarities here
+                losses_ssl_mix.update(loss_ssl_mix)
 
                 if opt.supcon_aug:
                     loss_supcon_mix = criterion2(features, labels, features_positive=mixed_positive_features)
@@ -382,8 +385,6 @@ def train(train_loader, model, linear, criterion1, criterion2, optimizer, epoch,
                 losses_ssl_mix.update(loss_ssl_mix.detach().cpu().item())
 
             loss = opt.method_gama * loss_sup + opt.method_lam * loss_ssl
-            losses_ssl.update(loss_ssl.detach().cpu().item())
-            losses_sup.update(loss_sup.detach().cpu().item())
 
         elif opt.method == 'SimCLR_CE':
             features = model(images)
