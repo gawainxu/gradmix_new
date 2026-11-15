@@ -24,11 +24,9 @@ import random
 from data_loader import paderborn_machine, BearingContrastiveViews
 import torchvision
 import torch
-from torchvision import transforms
 import torch.nn.functional as F
 from config import data_root
 from losses import SupConLoss
-from gradient_cache import gradient_cache_activations
 
 import cv2
 import numpy as np
@@ -244,7 +242,6 @@ def binary_random(p):
      return np.random.binomial(1, p)
 
 
-
 def mixup_hybrid_features(batch_features, labels, alpha, beta, batch_features_add = None, labels_add = None, method="min_similarity"):
 
     """
@@ -432,7 +429,6 @@ def rand_bbox(img_h, img_w, lam, activation=None):
         xl = cx - cut_w // 2
         xh = cx + cut_w // 2
     else:
-    
         activation = activation.numpy()
         act_h, act_w = activation.shape[0], activation[1]
         down_ratio = int(img_h / act_h)
@@ -444,10 +440,30 @@ def rand_bbox(img_h, img_w, lam, activation=None):
         yh = np.clip(cy + cut_h // 2, 0, img_h).item()
         xl = np.clip(cx - cut_w // 2, 0, img_w).item()
         xh = np.clip(cx + cut_w // 2, 0, img_w).item()
-            
 
-    #print("cy, cx, cut_y, cut_x", cy, cx, cut_h, cut_w)
     return yl, yh, xl, xh, cut_h*cut_w
+
+
+def rand_line(ts_l, lam, activation=None):
+    lam = lam.cpu().numpy()
+    ratio = np.sqrt(1 - lam)
+    cut_l = int(ts_l * ratio)
+
+    if activation == None:
+        cy = np.random.randint(0 + cut_l // 2, ts_l - cut_l // 2)
+        yl = cy - cut_l // 2
+        yh = cy + cut_l // 2
+    else:
+        activation = activation.numpy()
+        act_l = activation.shape[0]
+        down_ratio = int(ts_l / act_l)
+        maximum_indices = np.unravel_index(np.argmax(activation, axis=None), activation.shape)
+        cy = maximum_indices[0] * down_ratio
+
+        yl = np.clip(cy - cut_l // 2, 0, ts_l).item()
+        yh = np.clip(cy + cut_l // 2, 0, ts_l).item()
+
+    return yl, yh, (yh-yl)
     
 
 def downsample_data(ori_data, downsample_ratio):
@@ -457,7 +473,6 @@ def downsample_data(ori_data, downsample_ratio):
     downsampled_data = km.cluster_centers_
 
     return downsampled_data
-
 
 def salient_maps(batch_data1, batch_data2, model, opt):
 
@@ -476,40 +491,6 @@ def salient_maps(batch_data1, batch_data2, model, opt):
     return activations
 
 
-def layer_salient_maps(batch_data1, batch_data2, model, opt):
-
-    bsz, h, w = batch_data1.shape[0], batch_data1.shape[2], batch_data1.shape[3]
-    if opt.grad_splits == 1:
-       pg = parallel_gradients(model, mode="layersaliencymix", opt=opt)
-       activations, gradients = pg((batch_data1, batch_data2))
-       activations_list, gradients_list = sort_hooks(activations, gradients)
-    else:
-       criterion = SupConLoss(temperature=0.05)
-       batch_data = torch.cat([batch_data1, batch_data2], dim=0)
-       gca = gradient_cache_activations(model=model, splits=opt.grad_splits, loss_fcn=criterion, opt=opt)
-       activations, gradients = gca(batch_data)
-       activations_list, gradients_list = sort_hooks(activations, gradients)
-        
-    with torch.no_grad():
-        
-        if opt.method == "MoCo":
-            cam = torch.zeros(1, bsz, h, w)
-        else:
-            cam = torch.zeros(1, bsz*2, h, w)
-
-        for activations, gradients in zip(activations_list, gradients_list): 
-            activation_maps = activations * F.relu(gradients)
-            #print("activations", activations.shape, "gradients", gradients.shape)
-            cam_layer = torch.sum(activation_maps, dim=1).unsqueeze(0)         # unsqueeze for interpolate function that requires size of [mini-batch x channels x [optional depth] x [optional height] x width]
-            cam_layer_min, cam_layer_max = cam_layer.min(), cam_layer.max()
-            norm_cam_layer = (cam_layer - cam_layer_min).div(cam_layer_max - cam_layer_min + 1e-8).data
-            cam = cam + F.interpolate(norm_cam_layer, size=(h, w), mode="bilinear", align_corners=False)
-            
-        cam = torch.squeeze(cam)
-        
-    return cam
-
-
 def salient_cutmix(batch_data1, batch_data2, model, opt):
 
     """
@@ -519,7 +500,7 @@ def salient_cutmix(batch_data1, batch_data2, model, opt):
     2. Anchor on these pixels to patch the pieces from source images
     """
 
-    bsz, h, w = batch_data1.shape[0], batch_data1.shape[2], batch_data1.shape[3]
+    bsz, l = batch_data1.shape[0], batch_data1.shape[2]
     if torch.cuda.is_available() and opt.use_cuda is True:
         indices = torch.randperm(bsz).cuda()
     else:
@@ -546,32 +527,52 @@ def salient_cutmix(batch_data1, batch_data2, model, opt):
     for i in range(bsz):
        
         x11 = batch_data1[i]
-        x12 = batch_data2[indices[i]]
+        #x12 = batch_data2[indices[i]]
         x21 = batch_data2[i]
-        x22 = batch_data1[indices[i]]
+        #x22 = batch_data1[indices[i]]
         activation1 = activations[i]
         #activation2 = activations[i + bsz]           # TODO temperol commented
-        hl, hh, wl, wh, bbox_area = rand_bbox(img_h=h, img_w=w, lam=lam, activation=activation1)
+        hl, hh, cut_l = rand_line(ts_l=l, lam=lam, activation=activation1)
         x11_new = torch.empty_like(x11).copy_(x11)
         x21_new = torch.empty_like(x21).copy_(x21)
             
-        x11_new[:, hl:hh, wl:wh] = torch.rand(hh-hl, wh-wl)             #torchvision.transforms.functional.resize(x12, (hh-hl, wh-wl))
-        #print("hl, hh, wl, wh", hl, hh, wl, wh)
-        #hl, hh, wl, wh, bbox_area = rand_bbox(img_h=h, img_w=w, lam=lam, activation=activation2)
-        #print("hl, hh, wl, wh", hl, hh, wl, wh)
-        #x21[:, hl:hh, wl:wh] = torch.rand(hh-hl, wh-wl)  #torchvision.transforms.functional.resize(x22, (hh-hl, wh-wl))       # , wh-wl
-
+        x11_new[:, hl:hh] = torch.rand(hh-hl)             #torchvision.transforms.functional.resize(x12, (hh-hl, wh-wl))
         batch_data1_new.append(x11_new)
         batch_data2_new.append(x21_new)
 
     if torch.cuda.is_available() and opt.use_cuda is True:
-        new_lam = torch.tensor(1. - bbox_area / h / w).cuda()
+        new_lam = torch.tensor(1. - cut_l / l).cuda()
     else:
-        new_lam = torch.tensor(1. - bbox_area / h / w)
+        new_lam = torch.tensor(1. - cut_l / l)
     batch_data1_new = torch.stack(batch_data1_new)
     batch_data2_new = torch.stack(batch_data2_new)
 
     return batch_data1_new, batch_data2_new, new_lam
+
+
+def layer_salient_maps(batch_data1, batch_data2, model, opt):
+    bsz, l = batch_data1.shape[0], batch_data1.shape[2]
+    pg = parallel_gradients(model, mode="layersaliencymix", opt=opt)
+    activations, gradients = pg((batch_data1, batch_data2))
+    activations_list, gradients_list = sort_hooks(activations, gradients)
+
+    with torch.no_grad():
+
+        if opt.method == "MoCo":
+            cam = torch.zeros(1, bsz, l)
+        else:
+            cam = torch.zeros(1, bsz * 2, l)
+
+        for activations, gradients in zip(activations_list, gradients_list):
+            activation_maps = activations * F.relu(gradients)
+            cam_layer = torch.sum(activation_maps, dim=1).unsqueeze(0)  # unsqueeze for interpolate function that requires size of [mini-batch x channels x [optional depth] x [optional height] x width]
+            cam_layer_min, cam_layer_max = cam_layer.min(), cam_layer.max()
+            norm_cam_layer = (cam_layer - cam_layer_min).div(cam_layer_max - cam_layer_min + 1e-8).data
+            cam = cam + F.interpolate(norm_cam_layer, size=l, mode="linear", align_corners=False)
+
+        cam = torch.squeeze(cam)
+
+    return cam
 
 
 class LayerTracker:
@@ -615,32 +616,21 @@ class parallel_gradients(torch.nn.Module):
         self.model = model
         self.opt = opt
         self.tracker = LayerTracker()
-        
-        if torch.cuda.device_count() > 1:
-            if opt.method =="MoCo":
-                self.encoder = self.model.encoder_q.module
-            else:
-                self.encoder = self.model.encoder.module
+
+        if opt.model =="MoCo":
+            self.encoder = self.model.encoder_q
+        elif model =="ResNet18":
+            self.encoder = self.model.encoder
         else:
-            if opt.method =="MoCo":
-                self.encoder = self.model.encoder_q
-            else:
-                self.encoder = self.model.encoder
+            self.encoder = self.model
 
         if self.opt.model == "resnet18":
             self.encoder_layers = [self.encoder.layer1[-1], self.encoder.layer2[-1],
                                    self.encoder.layer3[-1], self.encoder.layer4[-1]]
             self.encoder_layer_names = ["encoder.layer1", "encoder.layer2", "encoder.layer3", "encoder.layer4"]
-        elif self.opt.model == "resnet18_pretrain":
-            self.encoder_layers = [self.encoder.layer4[-1]]
-            self.encoder_layer_names = ["encoder.layer4"]
-        elif self.opt.model == "resnet50_pretrain":
-            self.encoder_layers = [self.encoder.layer4[-1]]
-            self.encoder_layer_names = ["encoder.layer4"]
-        elif self.opt.model == "simCNN":
-            self.encoder_layers = [self.model.bn10, self.model.bn9,
-                                   self.model.bn8, self.model.bn7]
-            self.encoder_layer_names = ["bn7", "bn8", "bn9", "bn10"]
+        elif self.opt.model == "basic_cnn":
+            self.encoder_layers = [self.encoder.features[0], self.encoder.features[2]]
+            self.encoder_layer_names = ["features.0", "features.2"]
         elif self.opt.model == "vgg16" or self.opt.model == "vgg11" or self.opt.model == "vgg_s_bn":
             self.encoder_layers = [self.model.vgg_base.features]
             self.encoder_layer_names = ["vgg_base.features"]

@@ -74,3 +74,12 @@ class basic_CNN_multihead(nn.Module):
         embedding1, embedding2, embedding3 = self.encode(x)
 
         return embedding1, embedding2, embedding3
+
+
+if __name__ == '__main__':
+
+    model = basic_CNN()
+    # Print all layer names and their tensor shapes/parameters
+    for name, param in model.named_parameters():
+        if param.requires_grad:
+            print(f"Layer: {name} | Size: {param.size()} | Num Elements: {param.numel()}")

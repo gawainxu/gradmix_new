@@ -66,7 +66,7 @@ def parse_option():
     parser.add_argument("--last_model_path", type=str, default=None)
 
     # method
-    parser.add_argument('--method', type=str, default='SupCon',
+    parser.add_argument('--method', type=str, default='SimCLR',
                         choices=['SupCon', 'SimCLR', "SimCLR_CE", "MoCo"], help='choose method')
     parser.add_argument("--method_gama", type=float, default=1.0)
     parser.add_argument("--method_lam", type=float, default=1.0)
@@ -98,7 +98,7 @@ def parse_option():
     parser.add_argument("--momentum_moco", type=float, default=0.999)
 
     # mixup parameters
-    parser.add_argument("--mixup_positive", type=bool, default=False)
+    parser.add_argument("--mixup_positive", type=bool, default=True)
     parser.add_argument("--positive_method", type=str, default="layersaliencymix",
                         choices=["max_similarity", "min_similarity", "random", "prob_similarity", "reverse",
                                  "saliencymix", "layersaliencymix", "cutmix", "cv2saliency"])
@@ -279,6 +279,8 @@ def train(train_loader, model, linear, criterion1, criterion2, optimizer, epoch,
 
         if torch.cuda.is_available() and opt.use_cuda is True:
             images = images.cuda(non_blocking=True)
+            images1 = images1.cuda(non_blocking=True)
+            images2 = images2.cuda(non_blocking=True)
             labels = labels.cuda(non_blocking=True)
        
         bsz = labels.shape[0]
@@ -326,7 +328,7 @@ def train(train_loader, model, linear, criterion1, criterion2, optimizer, epoch,
                                              features_positive=mixed_positive_features)  # criterion1(mixed_positive_features) #  !!!!!!!!!! TODO
 
                 if opt.old_augmented:
-                    loss_supcon = loss_supcon + lam * loss_supcon_mix
+                    loss_sup = loss_sup + lam * loss_supcon_mix
                     losses_supcon_mix.update(loss_supcon_mix.detach().cpu().item())
 
         elif opt.method == 'SimCLR':
