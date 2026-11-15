@@ -8,13 +8,13 @@ Created on Mon Oct 25 21:42:16 2021
 
 osr_splits_inliers = {
     # Training classes
-    'paderborn': [list(range(32)),
-                 list(range(16))]}
+    'paderborn': [list(range(16)),
+                 list(range(16, 32))]}
 
 
 osr_splits_outliers = {
     # testing classes
-    "paderborn": [list(range(32)),
+    "paderborn": [list(range(16, 32)),
                  list(range(16))]
 }
 
