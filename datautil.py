@@ -80,7 +80,7 @@ def get_train_datasets(opt):
     train = True
     train_dataset = data_fun(root=data_root, train=train, transform=train_transform, target_transform=None,
                              split_mode="window", win_len=4068, step=100, classes=classes,
-                             seperate_conditions=False, condition_name="", signal_name="current1")
+                             seperate_conditions=False, condition_name="", signal_name=opt.data_channel)
     print("dataset size", len(train_dataset))
     return train_dataset
 
@@ -98,7 +98,7 @@ def get_test_datasets(opt):
         test_transform = None
     test_dataset = data_fun(root=data_root, train=train, transform=test_transform, target_transform=None,
                              split_mode="window", win_len=4068, step=100, classes=classes,
-                             seperate_conditions=False, condition_name="", signal_name="current1")
+                             seperate_conditions=False, condition_name="", signal_name=opt.data_channel)
     print("dataset size", len(test_dataset))
 
     return test_dataset
@@ -116,7 +116,7 @@ def get_outlier_datasets(opt):
     train = False
     outlier_dataset = data_fun(root=data_root, train=train, transform=test_transform, target_transform=None,
                              split_mode="window", win_len=4068, step=100, classes=classes,
-                             seperate_conditions=False, condition_name="", signal_name="current1")
+                             seperate_conditions=False, condition_name="", signal_name=opt.data_channel)
     print("dataset size", len(outlier_dataset))
     return outlier_dataset
 

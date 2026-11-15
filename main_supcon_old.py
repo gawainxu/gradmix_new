@@ -47,7 +47,7 @@ def parse_option():
     parser.add_argument("--grad_splits", type=int, default=1)
 
     # optimization
-    parser.add_argument('--learning_rate', type=float, default=0.001,
+    parser.add_argument('--learning_rate', type=float, default=0.00001,
                         help='learning rate')
     parser.add_argument('--lr_decay_epochs', type=str, default='1000',
                         help='where to decay lr, can be a list')
@@ -73,6 +73,8 @@ def parse_option():
     parser.add_argument("--trail", type=int, default=0, choices=[0,1,2,3,4,5,6], help="index of repeating training")
     parser.add_argument("--action", type=str, default="training_supcon",
                         choices=["training_supcon", "trainging_linear", "testing_known", "testing_unknown", "feature_reading"])
+    parser.add_argument("--data_channel", type=str, default="current1")
+
     # temperature
     parser.add_argument('--temp', type=float, default=0.05, help='temperature for loss')
 
@@ -103,7 +105,7 @@ def parse_option():
                         choices=["max_similarity", "min_similarity", "random", "prob_similarity", "reverse",
                                  "saliencymix", "layersaliencymix", "cutmix", "cv2saliency"])
     parser.add_argument("--alpha_vanilla", type=float, default=10)
-    parser.add_argument("--beta_vanilla", type=float, default=0.3)
+    parser.add_argument("--beta_vanilla", type=float, default=1)
     parser.add_argument("--use_cuda", type=bool, default=True)
 
     opt = parser.parse_args()
@@ -135,7 +137,7 @@ def parse_option():
     elif opt.method == "SimCLR_CE":
         opt.model_name += "_SimCLR_CE_" + str(opt.method_lam) + "_"
 
-    opt.model_name += 'trail_{}'.format(opt.trail) + "_" + str(opt.feat_dim) + "_" + str(opt.batch_size)
+    opt.model_name += 'trail_{}'.format(opt.trail) + "_" + str(opt.feat_dim) + "_" + str(opt.batch_size) + "_" + opt.data_channel
 
     if opt.old_augmented:
         opt.model_name += "_old_augmented"
