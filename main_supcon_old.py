@@ -69,7 +69,7 @@ def parse_option():
     parser.add_argument('--method', type=str, default='SimCLR',
                         choices=['SupCon', 'SimCLR', "SimCLR_CE", "MoCo"], help='choose method')
     parser.add_argument("--method_gama", type=float, default=1.0)
-    parser.add_argument("--method_lam", type=float, default=1.0)
+    parser.add_argument("--method_lam", type=float, default=0.5)
     parser.add_argument("--trail", type=int, default=0, choices=[0,1,2,3,4,5,6], help="index of repeating training")
     parser.add_argument("--action", type=str, default="training_supcon",
                         choices=["training_supcon", "trainging_linear", "testing_known", "testing_unknown", "feature_reading"])
@@ -100,7 +100,7 @@ def parse_option():
     parser.add_argument("--momentum_moco", type=float, default=0.999)
 
     # mixup parameters
-    parser.add_argument("--mixup_positive", type=bool, default=True)
+    parser.add_argument("--mixup_positive", type=bool, default=False)
     parser.add_argument("--positive_method", type=str, default="layersaliencymix",
                         choices=["max_similarity", "min_similarity", "random", "prob_similarity", "reverse",
                                  "saliencymix", "layersaliencymix", "cutmix", "cv2saliency"])
