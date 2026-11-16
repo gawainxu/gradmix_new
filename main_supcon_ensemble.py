@@ -62,9 +62,17 @@ def parse_option():
     parser.add_argument('--datasets', type=str, default='paderborn', help='dataset')
     parser.add_argument('--data_folder', type=str, default=None, help='path to custom dataset')
     parser.add_argument("--num_channels", type=int, default=1)
+    parser.add_argument("--split_mode", type=str, default='window')
+    parser.add_argument('--win_len', type=int, default=4096)
+    parser.add_argument('--split_step', type=int, default=100)
+    parser.add_argument("--seperate_conditions", type=bool, default=False)
+    parser.add_argument("--condition_name", type=str, default="")
+    parser.add_argument("--data_channel", type=str, default="vibration")
+    parser.add_argument("--trail", type=int, default=0)
+    parser.add_argument("--crop_length", type=int, default=4096)
+    parser.add_argument("--view_mode", type=str, default="scale_noise")
 
     # method
-    parser.add_argument("--trail", type=int, default=0, choices=[0, 1, 2, 3, 4, 5], help="index of repeating training")
     parser.add_argument("--action", type=str, default="training_supcon",
                         choices=["training_supcon", "trainging_linear", "testing_known", "testing_unknown",
                                  "feature_reading"])
@@ -103,7 +111,7 @@ def parse_option():
 
     opt.model_name = opt.datasets + "_" + opt.model + '_trail_{}'.format(opt.trail) + "_" + str(
             opt.feat_dim) + "_" + str(opt.out_dim) + "_" + str(opt.temp1) + "_" + str(opt.temp2) + "_" + str(
-            opt.temp3) + "_" + str(opt.batch_size)
+            opt.temp3) + "_" + str(opt.batch_size) + "_" + opt.data_channel
 
     # warm-up for large-batch training,
     if opt.batch_size > 256:
