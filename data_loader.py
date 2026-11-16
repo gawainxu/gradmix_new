@@ -21,7 +21,7 @@ class paderborn_machine(data.Dataset):
     # TODO check the data length and frequency
     def __init__(self, root="../datasets/", train=True, transform=None, target_transform=None,
                  split_mode="none", win_len=0, step=100, classes=list(range(32)),
-                 seperate_conditions=False, condition_name="", signal_name="current1"):
+                 seperate_conditions=False, condition_name="", signal_name="vibration"):
         self.class_names = ['K001', 'K002', 'K003', 'K004', 'K005', 'K006',
                             'KA01', 'KA03', 'KA04', 'KA05', 'KA06', 'KA07',
                             'KA08', 'KA09', 'KA15', 'KA16', 'KA22', 'KA30',

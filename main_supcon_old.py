@@ -60,20 +60,27 @@ def parse_option():
 
     # model dataset
     parser.add_argument('--model', type=str, default='basic_cnn')
-    parser.add_argument('--datasets', type=str, default='paderborn', help='dataset')
-    parser.add_argument('--data_folder', type=str, default=None, help='path to custom dataset')
-    parser.add_argument("--num_channels", type=int, default=1)
     parser.add_argument("--last_model_path", type=str, default=None)
+    parser.add_argument('--datasets', type=str, default='paderborn')
+    parser.add_argument('--data_folder', type=str, default=None)
+    parser.add_argument("--num_channels", type=int, default=1)
+    parser.add_argument("--split_mode", type=str, default='window')
+    parser.add_argument('--win_len', type=int, default=4096)
+    parser.add_argument('--split_step', type=int, default=100)
+    parser.add_argument("--seperate_conditions", type=bool, default=False)
+    parser.add_argument("--condition_name", type=str, default="")
+    parser.add_argument("--data_channel", type=str, default="vibration")
+    parser.add_argument("--trail", type=int, default=0)
+    parser.add_argument("--crop_length", type=int, default=4096)
+    parser.add_argument("--view_mode", type=str, default="scale_noise")
 
     # method
     parser.add_argument('--method', type=str, default='SimCLR',
                         choices=['SupCon', 'SimCLR', "SimCLR_CE", "MoCo"], help='choose method')
     parser.add_argument("--method_gama", type=float, default=1.0)
     parser.add_argument("--method_lam", type=float, default=0.5)
-    parser.add_argument("--trail", type=int, default=0, choices=[0,1,2,3,4,5,6], help="index of repeating training")
     parser.add_argument("--action", type=str, default="training_supcon",
                         choices=["training_supcon", "trainging_linear", "testing_known", "testing_unknown", "feature_reading"])
-    parser.add_argument("--data_channel", type=str, default="current1")
 
     # temperature
     parser.add_argument('--temp', type=float, default=0.05, help='temperature for loss')
@@ -85,8 +92,6 @@ def parse_option():
                         help='using synchronized batch normalization')
     parser.add_argument('--warm', action='store_true',
                         help='warm-up for large batch training')
-    parser.add_argument("--augmentation_method", type=str, default="vanilia", 
-                        choices=["vanilia", "mixup_negative", "mixup_positive", "mixup_hybrid", "mixup_vanilla", "mixup_vanilla_features"])
     parser.add_argument("--architecture", type=str, default="single", choices=["single", "multi"])
     parser.add_argument("--feat_dim", type=int, default=128)
     parser.add_argument("--grad_layers", type=str, default="0")
@@ -106,6 +111,8 @@ def parse_option():
                                  "saliencymix", "layersaliencymix", "cutmix", "cv2saliency"])
     parser.add_argument("--alpha_vanilla", type=float, default=10)
     parser.add_argument("--beta_vanilla", type=float, default=1)
+    parser.add_argument("--augmentation_method", type=str, default="vanilia", 
+                        choices=["vanilia", "mixup_negative", "mixup_positive", "mixup_hybrid", "mixup_vanilla", "mixup_vanilla_features"])
     parser.add_argument("--use_cuda", type=bool, default=True)
 
     opt = parser.parse_args()

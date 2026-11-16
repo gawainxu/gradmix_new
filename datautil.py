@@ -69,18 +69,17 @@ def get_train_datasets(opt):
     label_dict = label_to_dict(osr_splits_inliers[opt.datasets][opt.trail])
 
     if opt.action == "training_supcon":
-        # TODO settings for train_transform
-        train_transform = BearingContrastiveViews()
+        train_transform = BearingContrastiveViews(crop_length=opt.crop_length, mode=opt.view_mode)
     else:
         train_transform = None
 
     classes = osr_splits_inliers[opt.datasets][opt.trail]
 
-    # TODO settings for data_fun
     train = True
     train_dataset = data_fun(root=data_root, train=train, transform=train_transform, target_transform=None,
-                             split_mode="window", win_len=4068, step=100, classes=classes,
-                             seperate_conditions=False, condition_name="", signal_name=opt.data_channel)
+                             split_mode=opt.split_mode, win_len=opt.win_len, step=opt.split_step, classes=classes,
+                             seperate_conditions=opt.seperate_conditions, condition_name=opt.condition_name,
+                             signal_name=opt.data_channel)
     print("dataset size", len(train_dataset))
     return train_dataset
 
@@ -92,13 +91,13 @@ def get_test_datasets(opt):
     print(classes)
     train = False
     if opt.action == "training_supcon":
-        # TODO settings for train_transform and dataset !!!!!!!!!!!!!!
-        test_transform = BearingContrastiveViews()
+        test_transform = BearingContrastiveViews(crop_length=opt.crop_length, mode=opt.view_mode)
     else:
         test_transform = None
     test_dataset = data_fun(root=data_root, train=train, transform=test_transform, target_transform=None,
-                             split_mode="window", win_len=4068, step=100, classes=classes,
-                             seperate_conditions=False, condition_name="", signal_name=opt.data_channel)
+                            split_mode=opt.split_mode, win_len=opt.win_len, step=opt.split_step, classes=classes,
+                            seperate_conditions=opt.seperate_conditions, condition_name=opt.condition_name,
+                            signal_name=opt.data_channel)
     print("dataset size", len(test_dataset))
 
     return test_dataset
@@ -115,8 +114,9 @@ def get_outlier_datasets(opt):
 
     train = False
     outlier_dataset = data_fun(root=data_root, train=train, transform=test_transform, target_transform=None,
-                             split_mode="window", win_len=4068, step=100, classes=classes,
-                             seperate_conditions=False, condition_name="", signal_name=opt.data_channel)
+                               split_mode=opt.split_mode, win_len=opt.win_len, step=opt.split_step, classes=classes,
+                               seperate_conditions=opt.seperate_conditions, condition_name=opt.condition_name,
+                               signal_name=opt.data_channel)
     print("dataset size", len(outlier_dataset))
     return outlier_dataset
 
@@ -381,33 +381,29 @@ def vanilla_mixup(batch_data1, batch_data2, y, alpha, beta, mode="reverse", enco
 
 def vanilla_cutmix(batch_data1, batch_data2, opt):
 
-    bsz, h, w = batch_data1.shape[0], batch_data1.shape[2], batch_data1.shape[3]
+    bsz, l = batch_data1.shape[0], batch_data1.shape[2]
     indices = torch.randperm(bsz).cuda()
     lam = np.random.beta(opt.alpha_vanilla, opt.beta_vanilla)
-    while lam > 0.9 or lam < 0.1:
-        lam = np.random.beta(opt.alpha_vanilla, opt.beta_vanilla)
+    lam = lam * (0.9 - 0.5) + 0.5
     lam = torch.tensor(lam).cuda()
 
     batch_data1_new = []
     batch_data2_new = []
 
     for i in range(bsz):
-       
         x11 = batch_data1[i]
-        x12 = batch_data2[indices[i]]
+        # x12 = batch_data2[indices[i]]
         x21 = batch_data2[i]
-        x22 = batch_data1[indices[i]]
-        hl, hh, wl, wh, bbox_area = rand_bbox(img_h=h, img_w=w, lam=lam)
+        # x22 = batch_data1[indices[i]]
+        hl, hh, cut_l = rand_line(ts_l=l, lam=lam)
         x11_new = torch.empty_like(x11).copy_(x11)
-        x11_new[:, hl:hh, wl:wh] = torchvision.transforms.functional.resize(x12, (hh-hl))
-        #hl, hh, wl, wh, bbox_area = rand_bbox(img_h=h, img_w=w, lam=lam)
         x21_new = torch.empty_like(x21).copy_(x21)
-        x21_new[:, hl:hh, wl:wh] = torchvision.transforms.functional.resize(x22, (hh-hl))       # , wh-wl
 
+        x11_new[:, hl:hh] = torch.rand(hh - hl)
         batch_data1_new.append(x11_new)
         batch_data2_new.append(x21_new)
 
-    new_lam = torch.tensor(1. - bbox_area / h / w).cuda()
+    new_lam = torch.tensor(1. - cut_l / l).cuda()
     batch_data1_new = torch.stack(batch_data1_new)
     batch_data2_new = torch.stack(batch_data2_new)
 
