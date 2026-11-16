@@ -392,14 +392,14 @@ def vanilla_cutmix(batch_data1, batch_data2, opt):
 
     for i in range(bsz):
         x11 = batch_data1[i]
-        # x12 = batch_data2[indices[i]]
+        x12 = batch_data2[indices[i]]
         x21 = batch_data2[i]
         # x22 = batch_data1[indices[i]]
         hl, hh, cut_l = rand_line(ts_l=l, lam=lam)
         x11_new = torch.empty_like(x11).copy_(x11)
         x21_new = torch.empty_like(x21).copy_(x21)
 
-        x11_new[:, hl:hh] = torch.rand(hh - hl)
+        x11_new[:, hl:hh] = x12[:, hl:hh]
         batch_data1_new.append(x11_new)
         batch_data2_new.append(x21_new)
 
@@ -523,7 +523,7 @@ def salient_cutmix(batch_data1, batch_data2, model, opt):
     for i in range(bsz):
        
         x11 = batch_data1[i]
-        #x12 = batch_data2[indices[i]]
+        x12 = batch_data2[indices[i]]
         x21 = batch_data2[i]
         #x22 = batch_data1[indices[i]]
         activation1 = activations[i]
@@ -532,7 +532,7 @@ def salient_cutmix(batch_data1, batch_data2, model, opt):
         x11_new = torch.empty_like(x11).copy_(x11)
         x21_new = torch.empty_like(x21).copy_(x21)
             
-        x11_new[:, hl:hh] = torch.rand(hh-hl)             #torchvision.transforms.functional.resize(x12, (hh-hl, wh-wl))
+        x11_new[:, hl:hh] = x12[:, hl:hh]  #torch.rand(hh-hl)             #torchvision.transforms.functional.resize(x12, (hh-hl, wh-wl))
         batch_data1_new.append(x11_new)
         batch_data2_new.append(x21_new)
 
