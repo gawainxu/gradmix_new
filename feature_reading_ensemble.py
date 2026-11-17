@@ -19,7 +19,9 @@ import torch
 import numpy as np
 import pickle
 
-from networks.resnet_multi import SupConResNet_end, SupConResNet_inter
+from networks.ts_models import basic_CNN_multihead
+from networks.resnet_multi import SupConResNet_MultiHead
+from networks.resnet_big import SupConResNet_MultiHead_remix
 from datautil import num_inlier_classes_mapping
 
 from torch.utils.data import DataLoader
@@ -28,27 +30,13 @@ from datautil import get_train_datasets, get_test_datasets, get_outlier_datasets
 
 torch.multiprocessing.set_sharing_strategy('file_system')
 
-breaks = {"cifar-10-100-10": {"train": 5000, "test_known": 500, "test_unknown": 50, "full": 100000},
-          "cifar-10-100-50": {"train": 5000, "test_known": 500, "test_unknown": 50, "full": 100000},
-          'cifar10': {"train": 5000, "test_known": 500, "test_unknown": 500, "full": 100000},
-          "tinyimgnet": {"train": 5000, "test_known": 100, "test_unknown": 20, "full": 100000},
-          'mnist': {"train": 5000, "test_known": 500, "test_unknown": 500, "full": 100000},
-          "svhn": {"train": 5000, "test_known": 500, "test_unknown": 500, "full": 100000},
-          "cub": {"train": 5000, "test_known": 500, "test_unknown": 500, "full": 100000}}
-
-
 def parse_option():
     parser = argparse.ArgumentParser('argument for feature reading')
 
-    parser.add_argument('--datasets', type=str, default='cifar10',
-                        choices=["cifar-10-100-10", "cifar-10-100-50", 'cifar10', "tinyimgnet", 'mnist', "svhn", "cub",
-                                 "aircraft"], help='dataset')
-    parser.add_argument('--data_folder', type=str, default=None, help='path to custom dataset')
     parser.add_argument('--model', type=str, default="resnet18",
                         choices=["resnet18", "resnet34", "preactresnet18", "preactresnet34"])
     parser.add_argument("--model_path", type=str,
                         default="/save/SupCon/cifar10_resnet18_ensemble_trail_1_128_256_end_0.5_0.05_0.005_1.0_1.0_1.0/last.pth")
-    parser.add_argument("--trail", type=int, default=1)
     parser.add_argument("--split_train_val", type=bool, default=True)
     parser.add_argument("--action", type=str, default="feature_reading",
                         choices=["training_supcon", "trainging_linear", "testing_known", "testing_unknown",
@@ -56,6 +44,20 @@ def parse_option():
     parser.add_argument('--method', type=str, default='SupCon',
                         choices=['SupCon', 'SimCLR'], help='choose method')
     parser.add_argument("--feature_save", type=str, default="/features/")
+
+    # dataset
+    parser.add_argument('--datasets', type=str, default='paderborn')
+    parser.add_argument('--data_folder', type=str, default=None)
+    parser.add_argument("--num_channels", type=int, default=1)
+    parser.add_argument("--split_mode", type=str, default='window')
+    parser.add_argument('--win_len', type=int, default=4096)
+    parser.add_argument('--split_step', type=int, default=100)
+    parser.add_argument("--seperate_conditions", type=bool, default=False)
+    parser.add_argument("--condition_name", type=str, default="")
+    parser.add_argument("--data_channel", type=str, default="vibration")
+    parser.add_argument("--trail", type=int, default=0)
+    parser.add_argument("--crop_length", type=int, default=4096)
+    parser.add_argument("--view_mode", type=str, default="scale_noise")
 
     # temperature
     parser.add_argument('--temp1', type=float, default=0.05, help='temperature for loss1')
@@ -80,12 +82,6 @@ def parse_option():
     parser.add_argument('--batch_size', type=int, default=1, help='batch_size')
     parser.add_argument('--num_workers', type=int, default=4, help='num of workers to use')
 
-    # upsampling parameters
-    parser.add_argument("--upsample", type=bool, default=False)
-    parser.add_argument("--portion_out", type=float, default=0.5)
-    parser.add_argument("--upsample_times", type=int, default=1)
-    parser.add_argument("--last_feature_path", type=str, default=None)
-    parser.add_argument("--last_model_path", type=str, default=None)
 
     opt = parser.parse_args()
 
@@ -96,7 +92,6 @@ def parse_option():
     opt.n_cls = len(osr_splits_inliers[opt.datasets][opt.trail])
     opt.n_outs = len(osr_splits_outliers[opt.datasets][opt.trail])
 
-    opt.break_idx = breaks[opt.datasets][opt.if_train]
     if platform.system() == 'Windows':
         opt.model_name = opt.model_path.split("\\")[-2]
     elif platform.system() == 'Linux':
@@ -114,10 +109,14 @@ def load_model(opt):
     else:
         in_channels = 3
 
-    if opt.ensemble_mode == "end":
-        model = SupConResNet_end(name=opt.model, feat_dim=opt.feat_dim, in_channels=in_channels)
-    else:
-        model = SupConResNet_inter(name=opt.model, feat_dim=opt.feat_dim, in_channels=in_channels)
+    if opt.model == "basic_cnn_multi":
+        model = basic_CNN_multihead(feature_dim=opt.feat_dim, in_channels=opt.num_channels)
+    elif opt.model == "resnet_multi":
+        if torch.cuda.device_count() > 1:
+            model = SupConResNet_MultiHead_remix(output_dim=opt.out_dim, feat_dim=opt.feat_dim,
+                                                 in_channels=opt.num_channels)
+        else:
+            model = SupConResNet_MultiHead(output_dim=opt.out_dim, feat_dim=opt.feat_dim, in_channels=opt.num_channels)
 
     ckpt = torch.load(opt.model_path, map_location='cpu')
     state_dict = ckpt['model']

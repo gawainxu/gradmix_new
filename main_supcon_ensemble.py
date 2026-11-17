@@ -14,7 +14,7 @@ from util import AverageMeter
 from util import adjust_learning_rate, warmup_learning_rate
 from util import set_optimizer, save_model
 from datautil import get_train_datasets, get_test_datasets
-from networks.resnet_big import SupConResNet, SupConResNet_MultiHead_remix
+from networks.resnet_big import SupConResNet_MultiHead_remix
 from networks.resnet_multi import SupConResNet_MultiHead
 from networks.ts_models import basic_CNN_multihead
 from losses import SupConLoss

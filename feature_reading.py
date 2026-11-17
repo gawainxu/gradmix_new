@@ -33,12 +33,9 @@ def parse_option():
 
     parser = argparse.ArgumentParser('argument for feature reading')
 
-    parser.add_argument('--datasets', type=str, default='paderborn')
-    parser.add_argument('--data_folder', type=str, default=None, help='path to custom dataset')
     parser.add_argument('--model', type=str, default="basic_cnn")
     parser.add_argument("--model_path", type=str, default="")
     parser.add_argument("--linear_model_path", type=str, default=None)
-    parser.add_argument("--trail", type=int, default=0)
     parser.add_argument("--action", type=str, default="feature_reading",
                         choices=["training_supcon", "trainging_linear", "testing_known", "testing_unknown", "feature_reading"])
     parser.add_argument('--method', type=str, default='SupCon',
@@ -48,7 +45,6 @@ def parse_option():
     # temperature
     parser.add_argument('--temp', type=float, default=0.05, help='temperature for loss')
     parser.add_argument("--feat_dim", type=int, default=128)
-
     parser.add_argument("--lr", type=str, default=0.01)
     parser.add_argument("--if_train", type=str, default="test_known",
                         choices=['train', 'val', 'test_known', 'test_unknown', "full", "curruption"])
@@ -58,6 +54,20 @@ def parse_option():
     # mixup parameters
     parser.add_argument("--mixup_positive", type=bool, default=False)
     parser.add_argument("--positive_method", type=str, default="no", choices=["min_similarity", "random", "prob_similarity", "no"])
+
+    # dataset
+    parser.add_argument('--datasets', type=str, default='paderborn')
+    parser.add_argument('--data_folder', type=str, default=None)
+    parser.add_argument("--num_channels", type=int, default=1)
+    parser.add_argument("--split_mode", type=str, default='window')
+    parser.add_argument('--win_len', type=int, default=4096)
+    parser.add_argument('--split_step', type=int, default=100)
+    parser.add_argument("--seperate_conditions", type=bool, default=False)
+    parser.add_argument("--condition_name", type=str, default="")
+    parser.add_argument("--data_channel", type=str, default="vibration")
+    parser.add_argument("--trail", type=int, default=0)
+    parser.add_argument("--crop_length", type=int, default=4096)
+    parser.add_argument("--view_mode", type=str, default="scale_noise")
 
     opt = parser.parse_args()
 
@@ -81,13 +91,8 @@ def parse_option():
 
 def load_model(opt):
 
-    if opt.datasets == "mnist":
-        in_channels = 1
-    else:
-        in_channels = 3
-
     if opt.model == "resnet18" or opt.model == "resnet34":
-        model = SupConResNet(name=opt.model, feat_dim=opt.feat_dim, in_channels=in_channels)
+        model = SupConResNet(name=opt.model, feat_dim=opt.feat_dim, in_channels=opt.num_channels)
     elif opt.model == "basic_cnn":
         model = basic_CNN(feature_dim=opt.feat_dim, in_channels=opt.num_channels)
 
