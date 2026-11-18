@@ -18,10 +18,8 @@ import pickle
 
 
 from networks.resnet_big import SupConResNet, LinearClassifier
-from networks.mlp import SupConMLP
 from networks.ts_models import basic_CNN
 from featureMerge import featureMerge
-from datautil import num_inlier_classes_mapping
 
 from torch.utils.data import DataLoader
 from datautil import get_train_datasets, get_test_datasets, get_outlier_datasets, osr_splits_inliers, osr_splits_outliers
