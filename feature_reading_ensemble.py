@@ -140,8 +140,7 @@ def normalFeatureReading(data_loader, model, opt):
     for i, (img, label, _) in enumerate(data_loader):
 
         print(i)
-        if i > opt.break_idx:
-            break
+        img = img.float()
 
         output, output_encoder = model(img), model.encoder(img)
         output_head1, output_head2, output_head3 = output
