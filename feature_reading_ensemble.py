@@ -33,10 +33,9 @@ torch.multiprocessing.set_sharing_strategy('file_system')
 def parse_option():
     parser = argparse.ArgumentParser('argument for feature reading')
 
-    parser.add_argument('--model', type=str, default="resnet18",
-                        choices=["resnet18", "resnet34", "preactresnet18", "preactresnet34"])
+    parser.add_argument('--model', type=str, default="resnet18")
     parser.add_argument("--model_path", type=str,
-                        default="/save/SupCon/cifar10_resnet18_ensemble_trail_1_128_256_end_0.5_0.05_0.005_1.0_1.0_1.0/last.pth")
+                        default="")
     parser.add_argument("--split_train_val", type=bool, default=True)
     parser.add_argument("--action", type=str, default="feature_reading",
                         choices=["training_supcon", "trainging_linear", "testing_known", "testing_unknown",
