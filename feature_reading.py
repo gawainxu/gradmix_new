@@ -47,7 +47,6 @@ def parse_option():
     parser.add_argument("--if_train", type=str, default="test_known",
                         choices=['train', 'val', 'test_known', 'test_unknown', "full", "curruption"])
     parser.add_argument('--num_workers', type=int, default=4, help='num of workers to use')
-    parser.add_argument("--last_model_path", type=str, default=None)
 
     # mixup parameters
     parser.add_argument("--mixup_positive", type=bool, default=False)
@@ -71,6 +70,7 @@ def parse_option():
 
     opt.main_dir = os.getcwd()
     opt.model_path = opt.main_dir + opt.model_path
+    print("model_path", opt.model_path)
     opt.feature_save = opt.main_dir + opt.feature_save
     if opt.linear_model_path is not None:
         opt.linear_model_path = opt.main_dir + opt.linear_model_path
