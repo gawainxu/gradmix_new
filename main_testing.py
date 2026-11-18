@@ -8,25 +8,17 @@ Created on Fri Jan 14 15:29:30 2022
 
 import os
 import sys
-BASE_PATH = "/home/sysgen/Jiawen/SupContrast-master"
-sys.path.append(BASE_PATH) 
+
 
 import argparse
-import matplotlib.pyplot as plt
 
 import torch
-import torch.backends.cudnn as cudnn
-import torchvision.transforms as transforms
-from torchvision import datasets
 import numpy as np
 import pickle
 import copy
-from itertools import chain
 from scipy.spatial.distance import mahalanobis
 
-from networks.resnet_big import SupConResNet, LinearClassifier
-from networks.resnet_preact import SupConpPreactResNet
-from networks.simCNN import simCNN_contrastive
+from networks.ts_models import basic_CNN
 
 from util import  feature_stats
 from util import accuracy, AverageMeter, accuracy_plain, AUROC, OSCR, down_sampling
@@ -42,8 +34,7 @@ def parse_option():
 
     parser = argparse.ArgumentParser('argument for feature reading')
 
-    parser.add_argument('--datasets', type=str, default='tinyimgnet',
-                        choices=["cifar-10-100-10", "cifar-10-100-50", 'cifar10', 'cifar100', "tinyimgnet", 'mnist', "svhn", "imagenet100"], help='dataset')
+    parser.add_argument('--datasets', type=str, default='paderborn')
     parser.add_argument('--data_folder', type=str, default=None, help='path to custom dataset')
     parser.add_argument('--model', type=str, default="resnet18",  choices=["resnet18", "resnet34", "preactresnet18", "preactresnet34", "simCNN"])
     parser.add_argument("--model_path", type=str, default="/save/SupCon/cifar10_models/cifar10_resnet18_original_data__vanilia__SimCLR_0.01_trail_0/ckpt_epoch_400.pth")

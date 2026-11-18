@@ -76,6 +76,16 @@ class basic_CNN_multihead(nn.Module):
         return embedding1, embedding2, embedding3
 
 
+class LinearClassifier(nn.Module):
+    """Linear classifier"""
+    def __init__(self, num_classes=10, feat_dim=32):
+        super(LinearClassifier, self).__init__()
+        self.fc = nn.Linear(feat_dim, num_classes, bias=False)
+
+    def forward(self, features):
+        return self.fc(features)
+
+
 if __name__ == '__main__':
 
     model = basic_CNN()

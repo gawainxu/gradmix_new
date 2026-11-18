@@ -4,8 +4,6 @@ import os
 import sys
 import argparse
 import time
-import math
-import copy
 
 import torch
 import torch.backends.cudnn as cudnn
@@ -14,13 +12,10 @@ from util import AverageMeter
 from main_supcon_old import set_loader
 from util import adjust_learning_rate, warmup_learning_rate, accuracy
 from util import set_optimizer, save_model
-from networks.resnet_big import SupConResNet, LinearClassifier, ResNet_Pretrain
-from networks.resnet_big import MoCoResNet
-from networks.vgg import SupConVGG
-from networks.simCNN import simCNN_contrastive
-from networks.mlp import SupConMLP
+from networks.ts_models import basic_CNN, LinearClassifier
+from networks.resnet_big import SupConResNet
 from datautil import osr_splits_inliers
-from datautil import get_test_datasets
+from datautil import get_test_datasets, get_train_datasets
 
 try:
     import apex
@@ -59,31 +54,25 @@ def parse_option():
                         help='momentum')
 
     # model dataset
-    parser.add_argument('--method', type=str, default='SimCLR',
-                        choices=['SupCon', 'SimCLR', "SimCLR_CE", "MoCo", "MaskCon"], help='choose method')
-    parser.add_argument("--K", type=int, default=4096, help="buffer size in moco")
-    parser.add_argument("--momentum_moco", type=float, default=0.9)
-    parser.add_argument('--temp', type=float, default=0.05, help='temperature for loss')
-    parser.add_argument("--clip", type=float, default=None, help="for gradient clipping")
-    
-    parser.add_argument('--model', type=str, default='vgg16', choices=["resnet18", "resnet34", "vgg16", "resnet50_pretrain", "simCNN", "MLP"])
+    parser.add_argument('--model', type=str, default='basic_cnn')
     parser.add_argument("--feat_dim", type=int, default=128)
-    parser.add_argument('--datasets', type=str, default='cifar10', help='dataset')
-    parser.add_argument("--backbone_model_direct", type=str, default=None)
-    parser.add_argument("--backbone_model_name", type=str, default="last.pth")
+    parser.add_argument("--backbone_model_name", type=str,
+                        default="last.pth")
+    parser.add_argument("--backbone_model_direct", type=str,
+                        default="/save/SupCon/paderborn_models/paderborn_basic_cnn_vanilia__SupCon_trail_0_128_256_vibration_old_augmented")
+    parser.add_argument('--datasets', type=str, default='paderborn')
+    parser.add_argument('--data_folder', type=str, default=None)
+    parser.add_argument("--num_channels", type=int, default=1)
+    parser.add_argument("--split_mode", type=str, default='window')
+    parser.add_argument('--win_len', type=int, default=4096)
+    parser.add_argument('--split_step', type=int, default=100)
+    parser.add_argument("--seperate_conditions", type=bool, default=False)
+    parser.add_argument("--condition_name", type=str, default="")
+    parser.add_argument("--data_channel", type=str, default="vibration")
     parser.add_argument("--trail", type=int, default=0)
-    parser.add_argument("--temp_list", type=str, default="")
-    parser.add_argument("--randaug", type=int, default=0)
-    parser.add_argument("--apool", type=bool, default=False)
-    parser.add_argument("--augmix", type=bool, default=False)
-    
+    parser.add_argument("--crop_length", type=int, default=4096)
+    parser.add_argument("--view_mode", type=str, default="scale_noise")
 
-     # upsampling parameters
-    parser.add_argument("--upsample", type=bool, default=False)
-    parser.add_argument("--portion_out", type=float, default=0.5)
-    parser.add_argument("--upsample_times", type=int, default=1)
-    parser.add_argument("--last_feature_path", type=str, default=None)
-    parser.add_argument("--last_model_path", type=str, default=None)
 
     # other setting
     parser.add_argument('--cosine', type=bool, default=False,
@@ -105,7 +94,7 @@ def parse_option():
     if opt.backbone_model_direct is not None:
         opt.backbone_model_direct = opt.main_dir + opt.backbone_model_direct
         opt.backbone_model_path = os.path.join(opt.backbone_model_direct, opt.backbone_model_name)
-        opt.linear_model_path = os.path.join(opt.backbone_model_direct, "_" + opt.datasets + "_last_linear.pth")
+        opt.linear_model_path = os.path.join(opt.backbone_model_direct, "last_linear.pth")
     else:
         opt.backbone_model_path = None
 
@@ -138,25 +127,11 @@ def set_model(opt):
     classifier = LinearClassifier(feat_dim=opt.feat_dim, num_classes=opt.num_classes)
     classifier = classifier.cuda()
     criterion = criterion.cuda()
-
-    if opt.datasets == "mnist" or opt.datasets == "FUB":
-        in_channels = 1
-    else:
-        in_channels = 3
         
-    if opt.method == "MoCo":
-        model = MoCoResNet(opt, name=opt.model, feat_dim=opt.feat_dim, in_channels=in_channels)
-    else:
-        if opt.model == "resnet18" or opt.model == "resnet34" or opt.model == "resnet50":
-            model = SupConResNet(name=opt.model, feat_dim=opt.feat_dim, in_channels=in_channels)
-        elif opt.model == "resnet50_pretrain":
-            model = ResNet_Pretrain(name='resnet50', feat_dim=opt.feat_dim, freeze_layers=4)
-        elif opt.model in ["vgg16", "vgg11", "vgg_s_bn"]:
-            model = SupConVGG(name=opt.model, feat_dim=opt.feat_dim, in_channels=in_channels)
-        elif opt.model == "MLP":
-            model = SupConMLP(feat_dim=opt.feat_dim)
-        else:
-            model = simCNN_contrastive(opt, feature_dim=opt.feat_dim, in_channels=in_channels)
+    if opt.model == "resnet18" or opt.model == "resnet34":
+        model = SupConResNet(name=opt.model, feat_dim=opt.feat_dim, in_channels=opt.num_channels)
+    elif opt.model == "basic_cnn":
+        model = basic_CNN(feature_dim=opt.feat_dim, in_channels=opt.num_channels)
 
     if opt.backbone_model_path is not None:
         model = load_model(model, opt.backbone_model_path)
@@ -165,6 +140,13 @@ def set_model(opt):
 
     return model, classifier, criterion
 
+
+def set_data(opt):
+
+    train_dataset = get_train_datasets(opt)
+    test_dataset = get_test_datasets(opt)
+
+    return train_dataset, test_dataset
 
 def train(train_loader, model, classifier, criterion, optimizer, epoch, opt):
     """one epoch training"""
@@ -182,6 +164,7 @@ def train(train_loader, model, classifier, criterion, optimizer, epoch, opt):
     for idx, (images, labels) in enumerate(train_loader):
         data_time.update(time.time() - end)
 
+        images = images.float()
         images = images.cuda(non_blocking=True)
         labels = labels.cuda(non_blocking=True)
         bsz = labels.shape[0]
@@ -191,15 +174,7 @@ def train(train_loader, model, classifier, criterion, optimizer, epoch, opt):
 
         # compute loss
         with torch.no_grad():
-            if "resnet" in opt.model:
-                if opt.method == "MoCo":
-                    features = model(images) #model.encoder_q(images)
-                else:
-                    features = model(images) # model.encoder(images)
-            elif "vgg" in opt.model:
-                features = model(images)
-            elif "simCNN" in opt.model:
-                features = model.encoder(images) #model.encoder(images)
+            features = model(images)
             features = features.cuda(non_blocking=True)
         
         output = classifier(features)
@@ -254,16 +229,7 @@ def validate(val_loader, model, classifier, criterion, opt):
             bsz = labels.shape[0]
 
             # forward
-            if "resnet" in opt.model:
-                if opt.method == "MoCo":
-                    features = model(images)
-                else:
-                    features = model(images)
-            elif "vgg" in opt.model:
-                features = model(images)
-            elif "simCNN" in opt.model:
-                features = model.encoder(images)
-
+            features = model(images)
             output = classifier(features)
             loss = criterion(output, labels)
 
@@ -294,10 +260,10 @@ def main():
     opt = parse_option()
 
     # build data loader
-    train_loader, _ = set_loader(opt)
-    
-    test_dataset = get_test_datasets(opt)
-    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=opt.batch_size, shuffle=True,
+    train_dataset, test_dataset = set_data(opt)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=opt.batch_size, shuffle=True,
+                                              num_workers=opt.num_workers, pin_memory=True)
+    test_loader = torch.utils.data.DataLoader(test_dataset, 1, shuffle=True,
                                               num_workers=opt.num_workers, pin_memory=True)
     # build model and criterion
     model, classifier, criterion = set_model(opt)
