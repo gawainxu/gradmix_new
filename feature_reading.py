@@ -176,7 +176,7 @@ if __name__ == "__main__":
             print(r)
             opt.save_path = opt.feature_save + "temp" + str(r)
             featurePaths.append(opt.save_path)
-            datasets = set_data(opt, class_idx=r)
+            datasets = set_data(opt)
 
             dataloader = DataLoader(datasets, batch_size=1, shuffle=False, sampler=None,
                                     num_workers=0)
