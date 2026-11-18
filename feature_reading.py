@@ -32,7 +32,8 @@ def parse_option():
     parser = argparse.ArgumentParser('argument for feature reading')
 
     parser.add_argument('--model', type=str, default="basic_cnn")
-    parser.add_argument("--model_path", type=str, default="")
+    parser.add_argument("--model_path", type=str,
+                        default="/save/SupCon/paderborn_models/paderborn_basic_cnn_vanilia__SupCon_trail_0_128_256_vibration_old_augmented/last.pth")
     parser.add_argument("--linear_model_path", type=str, default=None)
     parser.add_argument("--action", type=str, default="feature_reading",
                         choices=["training_supcon", "trainging_linear", "testing_known", "testing_unknown", "feature_reading"])
@@ -149,7 +150,7 @@ def normalFeatureReading(data_loader, model, linear_model, opt):
 
 
 
-def set_data(opt, class_idx=None):
+def set_data(opt):
 
     if opt.if_train == "train" or opt.if_train == "full":
         datasets = get_train_datasets(opt)

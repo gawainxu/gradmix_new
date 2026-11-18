@@ -33,9 +33,9 @@ torch.multiprocessing.set_sharing_strategy('file_system')
 def parse_option():
     parser = argparse.ArgumentParser('argument for feature reading')
 
-    parser.add_argument('--model', type=str, default="resnet18")
+    parser.add_argument('--model', type=str, default="basic_cnn_multi")
     parser.add_argument("--model_path", type=str,
-                        default="")
+                        default="/save/SupCon/paderborn_models/paderborn_basic_cnn_multi_trail_0_128_512_0.5_0.1_0.05_256_vibration/last.pth")
     parser.add_argument("--split_train_val", type=bool, default=True)
     parser.add_argument("--action", type=str, default="feature_reading",
                         choices=["training_supcon", "trainging_linear", "testing_known", "testing_unknown",
@@ -103,10 +103,6 @@ def parse_option():
 
 
 def load_model(opt):
-    if opt.datasets == "mnist":
-        in_channels = 1
-    else:
-        in_channels = 3
 
     if opt.model == "basic_cnn_multi":
         model = basic_CNN_multihead(feature_dim=opt.feat_dim, in_channels=opt.num_channels)
@@ -133,26 +129,24 @@ def load_model(opt):
 
 
 def normalFeatureReading(data_loader, model, opt):
-    outputs_backbone = []
     outputs_head1, outputs_head2, outputs_head3 = [], [], []
     labels = []
 
-    for i, (img, label, _) in enumerate(data_loader):
+    for i, (img, label) in enumerate(data_loader):
 
         print(i)
         img = img.float()
 
-        output, output_encoder = model(img), model.encoder(img)
+        output = model(img)
         output_head1, output_head2, output_head3 = output
 
         outputs_head1.append(np.squeeze(output_head1.detach().numpy()))
         outputs_head2.append(np.squeeze(output_head2.detach().numpy()))
         outputs_head3.append(np.squeeze(output_head3.detach().numpy()))
-        outputs_backbone.append(np.squeeze(output_encoder.detach().numpy()))
         labels.append(label.numpy())
 
     with open(opt.save_path, "wb") as f:
-        pickle.dump((outputs_head1, outputs_head2, outputs_head3, outputs_backbone, labels), f)
+        pickle.dump((outputs_head1, outputs_head2, outputs_head3, labels), f)
 
 
 def meanList(l):
@@ -162,11 +156,11 @@ def meanList(l):
         return sum(l) * 1.0 / len(l)
 
 
-def set_data(opt, class_idx=None):
+def set_data(opt):
     if opt.if_train == "train" or opt.if_train == "full":
-        datasets = get_train_datasets(opt, class_idx)
+        datasets = get_train_datasets(opt)
     elif opt.if_train == "test_known":
-        datasets = get_test_datasets(opt, class_idx)
+        datasets = get_test_datasets(opt)
     elif opt.if_train == "test_unknown":
         datasets = get_outlier_datasets(opt)
 
@@ -177,34 +171,30 @@ def featureMerge(featureList, opt):
     featureMaps_head1 = []
     featureMaps_head2 = []
     featureMaps_head3 = []
-    featureMaps_backbone = []
     labels = []
     print(opt.save_path_all)
 
     for featurePath in featureList:
 
         with open(featurePath, "rb") as f:
-            features_head1, features_head2, features_head3, feature_backbone, labels_part = pickle.load(f)
+            features_head1, features_head2, features_head3, labels_part = pickle.load(f)
 
         featureMaps_head1 = featureMaps_head1 + features_head1
         featureMaps_head2 = featureMaps_head2 + features_head2
         featureMaps_head3 = featureMaps_head3 + features_head3
-        featureMaps_backbone = featureMaps_backbone + feature_backbone
         labels = labels + labels_part
 
-    featureMaps_backbone = np.array(featureMaps_backbone, dtype=object)
     featureMaps_head1 = np.array(featureMaps_head1, dtype=object)
     featureMaps_head2 = np.array(featureMaps_head2, dtype=object)
     featureMaps_head3 = np.array(featureMaps_head3, dtype=object)
 
-    featureMaps_backbone = np.squeeze(featureMaps_backbone)
     featureMaps_head1 = np.squeeze(featureMaps_head1)
     featureMaps_head2 = np.squeeze(featureMaps_head2)
     featureMaps_head3 = np.squeeze(featureMaps_head3)
     labels = np.squeeze(np.array(labels))
 
     with open(opt.save_path_all, 'wb') as f:
-        pickle.dump((featureMaps_head1, featureMaps_head2, featureMaps_head3, featureMaps_backbone, labels), f)
+        pickle.dump((featureMaps_head1, featureMaps_head2, featureMaps_head3, labels), f)
 
 
 if __name__ == "__main__":
@@ -220,7 +210,7 @@ if __name__ == "__main__":
         for r in range(0, opt.n_cls):
             opt.save_path = opt.feature_save + "/temp" + str(r)
             featurePaths.append(opt.save_path)
-            datasets = set_data(opt, class_idx=r)
+            datasets = set_data(opt)
             dataloader = DataLoader(datasets, batch_size=1, shuffle=False, sampler=None,
                                     num_workers=1)
             normalFeatureReading(dataloader, model, opt)
