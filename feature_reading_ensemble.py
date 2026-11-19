@@ -63,10 +63,6 @@ def parse_option():
     parser.add_argument('--temp2', type=float, default=0.05, help='temperature for loss2')
     parser.add_argument('--temp3', type=float, default=0.05, help='temperature for loss3')
 
-    parser.add_argument('--alpha1', type=float, default=1, help='coefficient for loss1')
-    parser.add_argument('--alpha2', type=float, default=1, help='coefficient for loss2')
-    parser.add_argument('--alpha3', type=float, default=1, help='coefficient for loss3')
-
     parser.add_argument("--epoch", type=int, default=600)
     parser.add_argument("--augmentation_method", type=str, default="vanilia",
                         choices=["vanilia", "upsampling", "mixup"])

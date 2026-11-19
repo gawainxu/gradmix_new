@@ -60,7 +60,7 @@ def parse_option():
     parser.add_argument("--backbone_model_name", type=str,
                         default="last.pth")
     parser.add_argument("--backbone_model_direct", type=str,
-                        default="/save/SupCon/paderborn_models/paderborn_basic_cnn_vanilia__SupCon_trail_0_128_256_vibration_old_augmented")
+                        default="")
     parser.add_argument('--datasets', type=str, default='paderborn')
     parser.add_argument('--data_folder', type=str, default=None)
     parser.add_argument("--num_channels", type=int, default=1)
@@ -117,7 +117,7 @@ def set_model(opt):
         else:
             model = SupConResNet_MultiHead(output_dim=opt.out_dim, feat_dim=opt.feat_dim, in_channels=opt.num_channels)
 
-    ckpt = torch.load(opt.model_path, map_location='cpu')
+    ckpt = torch.load(opt.backbone_model_path, map_location='cpu')
     state_dict = ckpt['model']
     new_state_dict = {}
     for k, v in state_dict.items():
