@@ -9,7 +9,6 @@ import torch
 import torch.backends.cudnn as cudnn
 
 from util import AverageMeter
-from main_supcon_old import set_loader
 from util import adjust_learning_rate, warmup_learning_rate, accuracy
 from util import set_optimizer, save_model
 from networks.ts_models import basic_CNN, LinearClassifier
@@ -295,7 +294,7 @@ def main():
         if avg5_test > best_top5_test_acc:
             best_top5_test_acc = avg5_test
 
-    save_file = opt.backbone_model_name.replace(".pth", "_linear_") + opt.temp_list + ".pth"
+    save_file = opt.backbone_model_name.replace(".pth", "_linear") + ".pth"
     save_file = os.path.join(opt.backbone_model_direct, save_file)
     save_model(model=model, linear=classifier, optimizer=optimizer, opt=opt, epoch=epoch, save_file=save_file)
     print("Best top1 accuacy is ", best_top1_test_acc)
