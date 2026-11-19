@@ -263,7 +263,7 @@ def main():
     train_dataset, test_dataset = set_data(opt)
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=opt.batch_size, shuffle=True,
                                               num_workers=opt.num_workers, pin_memory=True)
-    test_loader = torch.utils.data.DataLoader(test_dataset, 1, shuffle=True,
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=opt.batch_size, shuffle=True,
                                               num_workers=opt.num_workers, pin_memory=True)
     # build model and criterion
     model, classifier, criterion = set_model(opt)
