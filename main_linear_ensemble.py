@@ -60,7 +60,7 @@ def parse_option():
     parser.add_argument("--backbone_model_name", type=str,
                         default="last.pth")
     parser.add_argument("--backbone_model_direct", type=str,
-                        default="")
+                        default="/save/SupCon/paderborn_models/paderborn_basic_cnn_multi_trail_0_128_512_0.05_0.05_0.05_256_vibration")
     parser.add_argument('--datasets', type=str, default='paderborn')
     parser.add_argument('--data_folder', type=str, default=None)
     parser.add_argument("--num_channels", type=int, default=1)
@@ -125,7 +125,7 @@ def set_model(opt):
         new_state_dict[k] = v
 
     state_dict = new_state_dict
-    model = model.cpu()
+    model = model.cuda()
     model.load_state_dict(state_dict)
     model.eval()
 
