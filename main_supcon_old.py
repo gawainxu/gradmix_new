@@ -144,7 +144,7 @@ def parse_option():
     elif opt.method == "SimCLR_CE":
         opt.model_name += "_SimCLR_CE_" + str(opt.method_lam) + "_"
 
-    opt.model_name += 'trail_{}'.format(opt.trail) + "_" + str(opt.feat_dim) + "_" + str(opt.batch_size) + "_" + opt.data_channel
+    opt.model_name += 'trail_{}'.format(opt.trail) + "_" + str(opt.feat_dim) + "_" + str(opt.batch_size) + "_" + str(opt.win_len)
 
     if opt.old_augmented:
         opt.model_name += "_old_augmented"

@@ -22,7 +22,7 @@ osr_splits_outliers = {
 
 import random
 from data_loader import paderborn_machine, BearingContrastiveViews
-import torchvision
+from torch.utils.data import Subset
 import torch
 import torch.nn.functional as F
 from config import data_root
@@ -119,6 +119,26 @@ def get_outlier_datasets(opt):
                                signal_name=opt.data_channel)
     print("dataset size", len(outlier_dataset))
     return outlier_dataset
+
+
+
+def get_gradcam_datasets(opt):
+
+    data_fun = data_function_mapping_testing[opt.datasets]
+    classes = osr_splits_inliers[opt.datasets][opt.trail]
+    print(classes)
+    train = True
+    transform = BearingContrastiveViews(crop_length=opt.crop_length, mode=opt.view_mode)
+    
+    cam_dataset = data_fun(root=data_root, train=train, transform=transform, target_transform=None,
+                            split_mode=opt.split_mode, win_len=opt.win_len, step=opt.split_step, classes=classes,
+                            seperate_conditions=opt.seperate_conditions, condition_name=opt.condition_name,
+                            signal_name=opt.data_channel)
+    indices = torch.randperm(len(cam_dataset))[:4800] 
+    cam_dataset = Subset(cam_dataset, indices.tolist())
+    print("dataset size", len(cam_dataset))
+
+    return cam_dataset
 
 
 
@@ -734,6 +754,15 @@ if __name__ == "__main__":
     parser.add_argument("--action", type=str, default="training_supcon",
                         choices=["training_supcon", "trainging_linear", "testing_known", "testing_unknown",
                                  "feature_reading"])
+    parser.add_argument("--num_channels", type=int, default=1)
+    parser.add_argument("--split_mode", type=str, default='window')
+    parser.add_argument('--win_len', type=int, default=4096)
+    parser.add_argument('--split_step', type=int, default=100)
+    parser.add_argument("--seperate_conditions", type=bool, default=False)
+    parser.add_argument("--condition_name", type=str, default="")
+    parser.add_argument("--data_channel", type=str, default="current1")
+    parser.add_argument("--crop_length", type=int, default=4096)
+    parser.add_argument("--view_mode", type=str, default="scale_noise")
     opt = parser.parse_args()
 
     dataset = get_test_datasets(opt)

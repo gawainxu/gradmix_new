@@ -54,7 +54,7 @@ def parse_option():
                         help='momentum')
 
     # model dataset
-    parser.add_argument('--model', type=str, default='basic_cnn')
+    parser.add_argument('--model', type=str, default='basic_cnn_multi')
     parser.add_argument("--feat_dim", type=int, default=128)
     parser.add_argument("--ensemble_num", type=int, default=3)
     parser.add_argument("--backbone_model_name", type=str,
