@@ -21,7 +21,7 @@ class paderborn_machine(data.Dataset):
     # TODO check the data length and frequency
     def __init__(self, root="../datasets/", train=True, transform=None, target_transform=None,
                  split_mode="none", win_len=0, step=100, classes=list(range(32)),
-                 seperate_conditions=False, condition_name="", signal_name="vibration"):
+                 seperate_conditions=False, condition_name="", signal_name="vibration", label_dict=None):
         self.class_names = ['K001', 'K002', 'K003', 'K004', 'K005', 'K006',
                             'KA01', 'KA03', 'KA04', 'KA05', 'KA06', 'KA07',
                             'KA08', 'KA09', 'KA15', 'KA16', 'KA22', 'KA30',
@@ -49,6 +49,7 @@ class paderborn_machine(data.Dataset):
 
         self.data_list = os.listdir(self.root)
         self.data_names = [s.split(".")[0] for s in self.data_list]
+        self.labels_dict = label_dict
 
         # load and save the data in dict with the class names
         self.load_data()
@@ -143,6 +144,9 @@ class paderborn_machine(data.Dataset):
 
         if self.target_transform is not None:
             label = self.target_transform(label)
+
+        if self.labels_dict is not None:
+            label = self.labels_dict[str(label)]
 
         return seq, label
 

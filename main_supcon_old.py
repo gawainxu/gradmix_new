@@ -393,6 +393,52 @@ def train(train_loader, model, linear, criterion1, criterion2, optimizer, epoch,
 
             loss = opt.method_gama * loss_sup + opt.method_lam * loss_ssl
 
+        elif opt.method == 'SimCLR_SSL':
+            features = model(images)
+            features1, features2 = torch.split(features, [bsz, bsz], dim=0)
+            features = torch.cat([features1.unsqueeze(1), features2.unsqueeze(1)], dim=1)
+
+            loss_ssl = loss1 = criterion1(features)
+            losses_ssl.update(loss_ssl.detach().cpu().item())
+
+            if opt.mixup_positive:
+                if opt.positive_method == "cutmix" or opt.positive_method == "snapmix":
+                    mixed_positive_samples1, mixed_positive_samples2, lam = vanilla_cutmix(images1, images2, opt)
+                elif opt.positive_method == "saliencymix":
+                    mixed_positive_samples1, mixed_positive_samples2, lam = salient_cutmix(images1, images2, model, opt)
+                elif opt.positive_method == "layersaliencymix":
+                    mixed_positive_samples1, mixed_positive_samples2, lam = salient_cutmix(images1, images2, model, opt)
+                elif opt.positive_method == "cv2saliency":
+                    mixed_positive_samples1, mixed_positive_samples2, lam = salient_cutmix(images1, images2, model, opt)
+                else:
+                    mixed_positive_samples1, mixed_positive_samples2, labels_new, lam = vanilla_mixup(images1,
+                                                                                                          images2,
+                                                                                                          labels,
+                                                                                                          alpha=opt.alpha_vanilla,
+                                                                                                          beta=opt.beta_vanilla,
+                                                                                                          mode=opt.positive_method,
+                                                                                                          encoder=model)
+
+                mixed_positive_samples = torch.cat([mixed_positive_samples1, mixed_positive_samples2], dim=0)
+                mixed_positive_features = model(mixed_positive_samples)
+                mixed_positive_features1, mixed_positive_features2 = torch.split(mixed_positive_features,
+                                                                                     [bsz, bsz], dim=0)
+                mixed_positive_features = torch.cat(
+                        [mixed_positive_features1.unsqueeze(1), mixed_positive_features2.unsqueeze(1)], dim=1)
+                loss_ssl_mix = criterion1(features,
+                                            features_positive=mixed_positive_features)  # criterion1(mixed_positive_features) #  !!!!!!!!!! TODO maybe it is too hard to find the similarities here
+                losses_ssl_mix.update(loss_ssl_mix)
+
+                if opt.old_augmented:
+                    loss_ssl = loss_ssl + lam * loss_ssl_mix
+                elif opt.ssl_aug_abl:
+                    loss_ssl = loss_ssl
+                else:
+                    loss_ssl = loss2 = loss_ssl_mix
+                losses_ssl_mix.update(loss_ssl_mix.detach().cpu().item())
+
+            loss = loss_ssl
+
         elif opt.method == 'SimCLR_CE':
             features = model(images)
             features1, features2 = torch.split(features, [bsz, bsz], dim=0)

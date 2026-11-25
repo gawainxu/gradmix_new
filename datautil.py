@@ -79,7 +79,7 @@ def get_train_datasets(opt):
     train_dataset = data_fun(root=data_root, train=train, transform=train_transform, target_transform=None,
                              split_mode=opt.split_mode, win_len=opt.win_len, step=opt.split_step, classes=classes,
                              seperate_conditions=opt.seperate_conditions, condition_name=opt.condition_name,
-                             signal_name=opt.data_channel)
+                             signal_name=opt.data_channel, label_dict=label_dict)
     print("dataset size", len(train_dataset))
     return train_dataset
 
@@ -88,7 +88,7 @@ def get_test_datasets(opt):
 
     data_fun = data_function_mapping_testing[opt.datasets]
     classes = osr_splits_inliers[opt.datasets][opt.trail]
-    print(classes)
+    label_dict = label_to_dict(osr_splits_inliers[opt.datasets][opt.trail])
     train = False
     if opt.action == "training_supcon":
         test_transform = BearingContrastiveViews(crop_length=opt.crop_length, mode=opt.view_mode)
@@ -97,7 +97,7 @@ def get_test_datasets(opt):
     test_dataset = data_fun(root=data_root, train=train, transform=test_transform, target_transform=None,
                             split_mode=opt.split_mode, win_len=opt.win_len, step=opt.split_step, classes=classes,
                             seperate_conditions=opt.seperate_conditions, condition_name=opt.condition_name,
-                            signal_name=opt.data_channel)
+                            signal_name=opt.data_channel, label_dict=label_dict)
     print("dataset size", len(test_dataset))
 
     return test_dataset
@@ -110,13 +110,12 @@ def get_outlier_datasets(opt):
     data_fun = data_function_mapping_outliers[opt.datasets]
     label_dict = label_to_dict(osr_splits_outliers[opt.datasets][opt.trail], outliers=True)
     classes = osr_splits_outliers[opt.datasets][opt.trail]
-    print(classes)
 
     train = False
     outlier_dataset = data_fun(root=data_root, train=train, transform=test_transform, target_transform=None,
                                split_mode=opt.split_mode, win_len=opt.win_len, step=opt.split_step, classes=classes,
                                seperate_conditions=opt.seperate_conditions, condition_name=opt.condition_name,
-                               signal_name=opt.data_channel)
+                               signal_name=opt.data_channel, label_dict=label_dict)
     print("dataset size", len(outlier_dataset))
     return outlier_dataset
 
@@ -126,14 +125,14 @@ def get_gradcam_datasets(opt):
 
     data_fun = data_function_mapping_testing[opt.datasets]
     classes = osr_splits_inliers[opt.datasets][opt.trail]
-    print(classes)
+    label_dict = label_to_dict(osr_splits_inliers[opt.datasets][opt.trail])
     train = True
     transform = BearingContrastiveViews(crop_length=opt.crop_length, mode=opt.view_mode)
     
     cam_dataset = data_fun(root=data_root, train=train, transform=transform, target_transform=None,
                             split_mode=opt.split_mode, win_len=opt.win_len, step=opt.split_step, classes=classes,
                             seperate_conditions=opt.seperate_conditions, condition_name=opt.condition_name,
-                            signal_name=opt.data_channel)
+                            signal_name=opt.data_channel, label_dict=label_dict)
     indices = torch.randperm(len(cam_dataset))[:4800] 
     cam_dataset = Subset(cam_dataset, indices.tolist())
     print("dataset size", len(cam_dataset))
