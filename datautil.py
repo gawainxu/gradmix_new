@@ -34,8 +34,7 @@ from sklearn.cluster import KMeans
 from scipy.spatial.distance import mahalanobis
 
 
-num_inlier_classes_mapping = {"paderborn": 6}
-
+num_inlier_classes_mapping = {"paderborn": 16}
 
 data_function_mapping = {"paderborn": paderborn_machine, }
 

@@ -35,6 +35,7 @@ class basic_CNN(nn.Module):
 
         if return_embedding:
             return embedding
+        
         return logits
 
 

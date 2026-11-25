@@ -11,23 +11,17 @@ import os
 import sys
 import argparse
 import time
-import math
 import pickle
-import random
-import copy
 
 import torch
 import torch.backends.cudnn as cudnn
-from torchvision import transforms, datasets
 
-from util import TwoCropTransform, AverageMeter
-from util import adjust_learning_rate, warmup_learning_rate
-from util import set_optimizer, label_convert
-from datautil import num_inlier_classes_mapping, mixup_hybrid_features
-from networks.resnet_big import SupCEResNet
-from losses import SupConLoss
-from loss_mixup import SupConLoss_mix
-from datautil import get_train_datasets, mixup_negative
+from util import AverageMeter
+from util import adjust_learning_rate, accuracy
+from util import set_optimizer, save_model
+from datautil import num_inlier_classes_mapping
+from networks.ts_models import basic_CNN
+from datautil import get_train_datasets, get_test_datasets
 
 import matplotlib
 matplotlib.use('Agg')
@@ -42,7 +36,7 @@ except ImportError:
 def parse_option():
     parser = argparse.ArgumentParser('argument for training')
 
-    parser.add_argument('--print_freq', type=int, default=10,
+    parser.add_argument('--print_freq', type=int, default=100,
                         help='print frequency')
     parser.add_argument('--save_freq', type=int, default=20,
                         help='save frequency')
@@ -65,25 +59,26 @@ def parse_option():
     parser.add_argument('--momentum', type=float, default=0.9,
                         help='momentum')
     parser.add_argument("--pretrained", type=int, default=1)
+    parser.add_argument("--action", type=str, default="training_ce",
+                        choices=["training_supcon", "training_ce", "trainging_linear", "testing_known", "testing_unknown", "feature_reading"])        
 
     # model dataset
-    parser.add_argument('--model', type=str, default='resnet18', choices=["resnet18", "resnet34", "preactresnet18", "preactresnet34", "simCNN", "MLP", "MaskCon"])
-    parser.add_argument("--resnet_wide", type=int, default=1, help="factor for expanding channels in wide resnet")
-    parser.add_argument('--datasets', type=str, default='cifar10',
-                        choices=["cifar-10-100-10", "cifar-10-100-50", 'cifar10', "tinyimgnet", 'mnist', "svhn", "cub", "aircraft", "FUB"], help='dataset')
-    parser.add_argument('--mean', type=str, help='mean of dataset in path in form of str tuple')
-    parser.add_argument('--std', type=str, help='std of dataset in path in form of str tuple')
-    parser.add_argument('--data_folder', type=str, default=None, help='path to custom dataset')
-    parser.add_argument('--size', type=int, default=32, help='parameter for RandomResizedCrop')
-    parser.add_argument("--augmentation_list", type=list, default=[])
-    parser.add_argument("--argmentation_n", type=int, default=2)
-    parser.add_argument("--argmentation_m", type=int, default=6)
-    parser.add_argument("--randaug", type=int, default=0)
+    parser.add_argument('--model', type=str, default='basic_cnn')
+    parser.add_argument("--last_model_path", type=str, default=None)
+    parser.add_argument('--datasets', type=str, default='paderborn')
+    parser.add_argument('--data_folder', type=str, default=None)
+    parser.add_argument("--num_channels", type=int, default=1)
+    parser.add_argument("--split_mode", type=str, default='window')
+    parser.add_argument('--win_len', type=int, default=18256)
+    parser.add_argument('--split_step', type=int, default=100)
+    parser.add_argument("--seperate_conditions", type=bool, default=False)
+    parser.add_argument("--condition_name", type=str, default="")
+    parser.add_argument("--data_channel", type=str, default="vibration")
+    parser.add_argument("--trail", type=int, default=0)
+    parser.add_argument("--crop_length", type=int, default=4096)
+    parser.add_argument("--view_mode", type=str, default="scale_noise")
+    parser.add_argument("--feat_dim", type=int, default=128)
 
-    # method
-    parser.add_argument("--trail", type=int, default=0, choices=[0,1,2,3,4,5], help="index of repeating training")
-    parser.add_argument("--action", type=str, default="training_ce",
-                        choices=["training_supcon", "training_ce", "trainging_linear", "testing_known", "testing_unknown", "feature_reading"])            
         
     # other setting
     parser.add_argument('--cosine', type=bool, default=False,
@@ -92,17 +87,10 @@ def parse_option():
                         help='using synchronized batch normalization')
     parser.add_argument('--warm', action='store_true',
                         help='warm-up for large batch training')
-    parser.add_argument("--feat_dim", type=int, default=128)
-    
+    parser.add_argument("--use_cuda", type=bool, default=True)
 
 
     opt = parser.parse_args()
-
-    # check if dataset is path that passed required arguments
-    if opt.datasets == 'path':
-        assert opt.data_folder is not None \
-            and opt.mean is not None \
-            and opt.std is not None
 
     # set the path according to the environment
     if opt.data_folder is None:
@@ -114,12 +102,9 @@ def parse_option():
     for it in iterations:
         opt.lr_decay_epochs.append(int(it))
 
-    opt.model_name = opt.datasets + "_" + opt.model + "_" + str(opt.resnet_wide)
+    opt.model_name = opt.datasets + "_" + opt.model
    
     opt.model_name += 'trail_{}'.format(opt.trail) + "_" + str(opt.feat_dim) + "_" + str(opt.batch_size)
-
-    if opt.randaug == 1:
-        opt.model_name += "_randaug" + str(opt.argmentation_n) + "_" + str(opt.argmentation_m)
 
     opt.save_folder = os.path.join(opt.model_path, opt.model_name)
     if not os.path.isdir(opt.save_folder):
@@ -132,31 +117,37 @@ def parse_option():
 
 def set_loader(opt):
     # construct data loader
-    
-    train_dataset =  get_train_datasets(opt)
+
+    train_dataset = get_train_datasets(opt)
+    test_dataset = get_test_datasets(opt)
 
     train_sampler = None
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=opt.batch_size, shuffle=(train_sampler is None),
-                                               num_workers=opt.num_workers, pin_memory=True, sampler=train_sampler, drop_last=True)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=opt.batch_size, shuffle=True,
+                                                num_workers=opt.num_workers, pin_memory=True, sampler=train_sampler, drop_last=True,
+                                                persistent_workers = False)
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1,
+                                              shuffle=False, num_workers=opt.num_workers, pin_memory=True,
+                                              sampler=train_sampler, drop_last=True, persistent_workers=False)
 
-    return train_loader
-
+    return train_loader, test_loader
 
 
 def set_model(opt):
+    if opt.model == "basic_cnn":
+        model = basic_CNN(feature_dim=opt.feat_dim, in_channels=opt.num_channels,
+                          num_classes= opt.num_classes)
+        criterion = torch.nn.CrossEntropyLoss()
 
-    if opt.datasets == "mnist":
-        in_channels = 1
-    elif opt.datasets == "FUB":
-        in_channels = 1
-    else:
-        in_channels = 3
-        
-    model = SupCEResNet(name=opt.model, in_channels=in_channels, num_classes=opt.num_classes)                 # TODO
-    criterion = torch.nn.CrossEntropyLoss()
-       
-    if torch.cuda.is_available():
-        
+    if opt.last_model_path is not None:
+        print("model loaded")
+        load_model(opt, model)
+
+    # enable synchronized Batch Normalization
+    if opt.syncBN:
+        model = apex.parallel.convert_syncbn_model(model)
+
+    if torch.cuda.is_available() and opt.use_cuda is True:
+
         model = model.cuda()
         criterion = criterion.cuda()
         cudnn.benchmark = True
@@ -166,8 +157,6 @@ def set_model(opt):
 
 
 def load_model(opt, model=None):
-    if model is None:
-        model = SupCEResNet(name=opt.model, num_classes=opt.num_classes)
 
     ckpt = torch.load(opt.last_model_path, map_location='cpu')
     state_dict = ckpt['model']
@@ -185,7 +174,6 @@ def load_model(opt, model=None):
     return model
 
 
-
 def save_model(model=None, optimizer=None, opt=None, epoch=0, save_file=None):
     print('==> Saving...')
     state = {'opt': opt,
@@ -194,7 +182,6 @@ def save_model(model=None, optimizer=None, opt=None, epoch=0, save_file=None):
             'epoch': epoch,}
     torch.save(state, save_file)
     del state
-
 
 
 def train(train_loader, model, criterion, optimizer, epoch, opt):
@@ -206,20 +193,19 @@ def train(train_loader, model, criterion, optimizer, epoch, opt):
     losses = AverageMeter()
 
     end = time.time()
-    for idx, (images, labels, _) in enumerate(train_loader):
+    for idx, (images, labels) in enumerate(train_loader):
 
         data_time.update(time.time() - end)
 
         if torch.cuda.is_available():
-            images = images.cuda(non_blocking=True)
+            images = images.float().cuda(non_blocking=True)
             labels = labels.cuda(non_blocking=True)
        
         bsz = labels.shape[0]
         
-        logits = model(images)
+        logits = model(images, return_embedding=False)
         loss = criterion(logits, labels)
         losses.update(loss.item())
-
 
         # update metric
         losses.update(loss.item(), bsz)
@@ -246,11 +232,58 @@ def train(train_loader, model, criterion, optimizer, epoch, opt):
     return losses.avg
 
 
+def test(test_loader, model, criterion, opt):
+    """one epoch training"""
+    model.train()
+
+    batch_time = AverageMeter()
+    data_time = AverageMeter()
+    losses = AverageMeter()
+    top1 = AverageMeter()
+    top5 = AverageMeter()
+
+    end = time.time()
+    for idx, (images, labels) in enumerate(test_loader):
+
+        data_time.update(time.time() - end)
+
+        if torch.cuda.is_available():
+            images = images.float().cuda(non_blocking=True)
+            labels = labels.cuda(non_blocking=True)
+
+        bsz = labels.shape[0]
+
+        logits = model(images, return_embedding=False)
+        loss = criterion(logits, labels)
+        losses.update(loss.item())
+        acc = accuracy(logits, labels, topk=(1, 5))
+        acc1, acc5 = acc[0].item(), acc[1].item()
+        top1.update(acc1, bsz)
+        top5.update(acc5, bsz)
+
+        # update metric
+        losses.update(loss.item(), bsz)
+
+        # measure elapsed time
+        batch_time.update(time.time() - end)
+        end = time.time()
+
+        # print info
+    print('Test: \t'
+              'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+              'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+              'Acc1 {top1.val:.3f} ({top1.avg:.3f})'
+              'Acc5 {top5.val:.3f} ({top5.avg:.3f})'.format(
+    batch_time=batch_time, loss=losses, top1=top1, top5=top5))
+
+    return losses.avg, top1.avg, top5.avg
+
+
 def main():
     opt = parse_option()
 
     # build data loader
-    train_loader = set_loader(opt)
+    train_loader, test_loader = set_loader(opt)
     print("train_loader, ", train_loader.__len__())
 
     # build model and criterion
@@ -269,8 +302,10 @@ def main():
         loss = train(train_loader, model, criterion, optimizer, epoch, opt)
         time2 = time.time()
         print('epoch {}, total time {:.2f}'.format(epoch, time2 - time1))
-
         losses.append(loss)
+
+        loss_test, acc1, acc5 = test(test_loader, model, criterion, opt)
+
         if epoch % opt.save_freq == 0:
             save_file = os.path.join(
                 opt.save_folder, 'ckpt_epoch_{epoch}.pth'.format(epoch=epoch))
@@ -281,7 +316,7 @@ def main():
         opt.save_folder, 'last.pth')
     save_model(model, optimizer, opt, opt.epochs, save_file)
     with open(os.path.join(opt.save_folder, "loss_" + str(opt.trail)), "wb") as f:
-         pickle.dump(losses, f)
+         pickle.dump((losses, loss_test, acc1, acc5), f)
 
 
 if __name__ == '__main__':

@@ -177,6 +177,8 @@ if __name__ == "__main__":
     if opt.if_train == "train" or opt.if_train == "test_known" or opt.if_train == "full":
         for r in opt.classes:
             print(r)
+            if r < 16:
+                continue
             opt.save_path = opt.feature_save + "temp" + str(r)
             featurePaths.append(opt.save_path)
             datasets = set_data(opt, classes=[r])
