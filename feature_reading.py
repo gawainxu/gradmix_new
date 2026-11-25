@@ -76,7 +76,8 @@ def parse_option():
     if opt.linear_model_path is not None:
         opt.linear_model_path = opt.main_dir + opt.linear_model_path
 
-    opt.n_cls = len(osr_splits_inliers[opt.datasets][opt.trail])
+    opt.classes = osr_splits_inliers[opt.datasets][opt.trail]
+    opt.n_cls = len(opt.classes)
     opt.n_outs = len(osr_splits_outliers[opt.datasets][opt.trail])                                 # !!!!!!!!!!!!!
 
     if platform.system() == 'Windows':
@@ -152,7 +153,7 @@ def normalFeatureReading(data_loader, model, linear_model, opt):
 
 
 
-def set_data(opt):
+def set_data(opt, classes=[]):
 
     if opt.if_train == "train" or opt.if_train == "full":
         datasets = get_train_datasets(opt)
@@ -174,11 +175,11 @@ if __name__ == "__main__":
     featurePaths = []
 
     if opt.if_train == "train" or opt.if_train == "test_known" or opt.if_train == "full":
-        for r in range(0, opt.n_cls):
+        for r in opt.classes:
             print(r)
             opt.save_path = opt.feature_save + "temp" + str(r)
             featurePaths.append(opt.save_path)
-            datasets = set_data(opt)
+            datasets = set_data(opt, classes=[r])
 
             dataloader = DataLoader(datasets, batch_size=1, shuffle=False, sampler=None,
                                     num_workers=0)

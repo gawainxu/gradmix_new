@@ -63,7 +63,7 @@ def label_to_dict(labels, outliers=False):
     return label_dict
 
 
-def get_train_datasets(opt):
+def get_train_datasets(opt, classes=[]):
 
     data_fun = data_function_mapping[opt.datasets]
     label_dict = label_to_dict(osr_splits_inliers[opt.datasets][opt.trail])
@@ -73,7 +73,8 @@ def get_train_datasets(opt):
     else:
         train_transform = None
 
-    classes = osr_splits_inliers[opt.datasets][opt.trail]
+    if len(classes) == 0:
+        classes = osr_splits_inliers[opt.datasets][opt.trail]
 
     train = True
     train_dataset = data_fun(root=data_root, train=train, transform=train_transform, target_transform=None,
@@ -84,10 +85,11 @@ def get_train_datasets(opt):
     return train_dataset
 
 
-def get_test_datasets(opt):
+def get_test_datasets(opt, classes=[]):
 
     data_fun = data_function_mapping_testing[opt.datasets]
-    classes = osr_splits_inliers[opt.datasets][opt.trail]
+    if len(classes) == 0:
+        classes = osr_splits_inliers[opt.datasets][opt.trail]
     label_dict = label_to_dict(osr_splits_inliers[opt.datasets][opt.trail])
     train = False
     if opt.action == "training_supcon":
@@ -104,12 +106,13 @@ def get_test_datasets(opt):
 
 
 
-def get_outlier_datasets(opt):
+def get_outlier_datasets(opt, classes=[]):
 
     test_transform = None
     data_fun = data_function_mapping_outliers[opt.datasets]
     label_dict = label_to_dict(osr_splits_outliers[opt.datasets][opt.trail], outliers=True)
-    classes = osr_splits_outliers[opt.datasets][opt.trail]
+    if len(classes) == 0:
+        classes = osr_splits_outliers[opt.datasets][opt.trail]
 
     train = False
     outlier_dataset = data_fun(root=data_root, train=train, transform=test_transform, target_transform=None,
@@ -121,10 +124,11 @@ def get_outlier_datasets(opt):
 
 
 
-def get_gradcam_datasets(opt):
+def get_gradcam_datasets(opt, classes=[]):
 
     data_fun = data_function_mapping_testing[opt.datasets]
-    classes = osr_splits_inliers[opt.datasets][opt.trail]
+    if len(classes) == 0:
+        classes = osr_splits_inliers[opt.datasets][opt.trail]
     label_dict = label_to_dict(osr_splits_inliers[opt.datasets][opt.trail])
     train = True
     transform = BearingContrastiveViews(crop_length=opt.crop_length, mode=opt.view_mode)
