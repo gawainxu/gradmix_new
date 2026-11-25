@@ -131,7 +131,7 @@ def normalFeatureReading(data_loader, model, linear_model, opt):
     for i, (img, label) in enumerate(data_loader):
         
         print(i)
-        if i > 300000:
+        if i > 100000:
             break
         img = img.float()
         if opt.method == "SupCon" or opt.method == "SimCLR":
