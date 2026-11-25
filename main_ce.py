@@ -125,7 +125,7 @@ def set_loader(opt):
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=opt.batch_size, shuffle=True,
                                                 num_workers=opt.num_workers, pin_memory=True, sampler=train_sampler, drop_last=True,
                                                 persistent_workers = False)
-    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1,
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=opt.batch_size,
                                               shuffle=False, num_workers=opt.num_workers, pin_memory=True,
                                               sampler=train_sampler, drop_last=True, persistent_workers=False)
 
