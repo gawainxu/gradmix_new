@@ -435,8 +435,8 @@ def train(train_loader, model, linear, criterion1, criterion2, optimizer, epoch,
             labels_linear = labels
             features1, features2 = torch.split(features, [bsz, bsz], dim=0)
             features = torch.cat([features1.unsqueeze(1), features2.unsqueeze(1)], dim=1)
-            loss_ce = loss1 = criterion2(logits, labels_linear)
-            loss_ssl = loss2 = criterion1(features)
+            loss_ce = loss1 = criterion1(logits, labels_linear)
+            loss_ssl = loss2 = criterion2(features)
             loss = opt.method_gama * loss_ce + opt.method_lam * loss_ssl
 
             losses_ssl.update(loss_ssl.detach().cpu().item())
