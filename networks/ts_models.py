@@ -36,7 +36,7 @@ class basic_CNN(nn.Module):
         if return_embedding:
             return embedding
         
-        return logits
+        return logits, embedding
 
 
 class basic_CNN_multihead(nn.Module):

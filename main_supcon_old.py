@@ -204,11 +204,15 @@ def set_model(opt):
 
     if opt.model == "basic_cnn":
         model = basic_CNN(feature_dim=opt.feat_dim, in_channels=opt.num_channels)
-            
+        linear = None
+
+    if opt.method in ["SimCLR", "SimCLR_CE", "SupCon", "SimCLR_SSL"]:
         criterion1 = SupConLoss(temperature=opt.temp)
         criterion2 = SupConLoss(temperature=opt.temp)
-        linear = None
-        
+    elif opt.method in ["SimCLR_CE"]:
+        criterion1 = SupConLoss(temperature=opt.temp)
+        criterion2 = torch.nn.CrossEntropyLoss()
+
     if opt.last_model_path is not None:
         print("model loaded")
         load_model(opt, model)
@@ -223,8 +227,6 @@ def set_model(opt):
             model.encoder = torch.nn.DataParallel(model.encoder)
     
         model = model.cuda()
-        if linear is not None:
-            linear = linear.cuda()
         if criterion1 is not None:
             criterion1 = criterion1.cuda()
         if criterion2 is not None:
@@ -283,6 +285,8 @@ def train(train_loader, model, linear, criterion1, criterion2, optimizer, epoch,
         
         if opt.method == "SimCLR_CE":
             image3 = images[2]
+            if torch.cuda.is_available() and opt.use_cuda is True:
+                image3 = image3.cuda(non_blocking=True)
             
         images = torch.cat([images1, images2], dim=0)
 
@@ -296,13 +300,6 @@ def train(train_loader, model, linear, criterion1, criterion2, optimizer, epoch,
 
         # warm-up learning rate
         #warmup_learning_rate(opt, epoch, idx, len(train_loader), optimizer)
-
-        if linear is not None:
-            labels_linear = labels #torch.cat([labels, labels], dim=0)
-            if torch.cuda.is_available() and opt.use_cuda is True:
-                image3 = image3.cuda(non_blocking=True)
-            #labels_linear = labels_linear.cuda(non_blocking=True)
-            logits = linear(model.encoder(image3))
             
         if opt.method == 'SupCon':
             features = model(images)
@@ -440,7 +437,8 @@ def train(train_loader, model, linear, criterion1, criterion2, optimizer, epoch,
             loss = loss_ssl
 
         elif opt.method == 'SimCLR_CE':
-            features = model(images)
+            features, logits = model(images, return_embeddigs=False)
+            labels_linear = labels
             features1, features2 = torch.split(features, [bsz, bsz], dim=0)
             features = torch.cat([features1.unsqueeze(1), features2.unsqueeze(1)], dim=1)
             loss_ce = loss1 = criterion2(logits, labels_linear)
