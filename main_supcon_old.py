@@ -282,12 +282,6 @@ def train(train_loader, model, linear, criterion1, criterion2, optimizer, epoch,
         data_time.update(time.time() - end)
         images1 = images[0]
         images2 = images[1]
-        
-        if opt.method == "SimCLR_CE":
-            image3 = images[2]
-            if torch.cuda.is_available() and opt.use_cuda is True:
-                image3 = image3.cuda(non_blocking=True)
-            
         images = torch.cat([images1, images2], dim=0)
 
         if torch.cuda.is_available() and opt.use_cuda is True:
