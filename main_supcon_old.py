@@ -207,7 +207,6 @@ def set_model(opt):
         linear = None
 
     if opt.method == "SimCLR_CE":
-        print("Set loss here")
         criterion1 = torch.nn.CrossEntropyLoss()
         criterion2 = SupConLoss(temperature=opt.temp)
     else:
@@ -433,7 +432,7 @@ def train(train_loader, model, linear, criterion1, criterion2, optimizer, epoch,
 
         elif opt.method == 'SimCLR_CE':
             features, logits = model(images, return_embedding=False)
-            labels_linear = labels
+            labels_linear = torch.cat((labels, labels), 0)
             features1, features2 = torch.split(features, [bsz, bsz], dim=0)
             features = torch.cat([features1.unsqueeze(1), features2.unsqueeze(1)], dim=1)
             loss_ce = loss1 = criterion1(logits, labels_linear)
