@@ -431,7 +431,7 @@ def train(train_loader, model, linear, criterion1, criterion2, optimizer, epoch,
             loss = loss_ssl
 
         elif opt.method == 'SimCLR_CE':
-            features, logits = model(images, return_embeddigs=False)
+            features, logits = model(images, return_embedding=False)
             labels_linear = labels
             features1, features2 = torch.split(features, [bsz, bsz], dim=0)
             features = torch.cat([features1.unsqueeze(1), features2.unsqueeze(1)], dim=1)
