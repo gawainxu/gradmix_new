@@ -435,12 +435,12 @@ def train(train_loader, model, linear, criterion1, criterion2, optimizer, epoch,
             labels_linear = torch.cat((labels, labels), 0)
             features1, features2 = torch.split(features, [bsz, bsz], dim=0)
             features = torch.cat([features1.unsqueeze(1), features2.unsqueeze(1)], dim=1)
-            loss_ce = loss1 = criterion1(logits, labels_linear)
+            loss_sup = loss1 = criterion1(logits, labels_linear)
             loss_ssl = loss2 = criterion2(features)
-            loss = opt.method_gama * loss_ce + opt.method_lam * loss_ssl
+            loss = opt.method_gama * loss_sup + opt.method_lam * loss_ssl
 
             losses_ssl.update(loss_ssl.detach().cpu().item())
-            losses_sup.update(loss_ce.detach().cpu().item())
+            losses_sup.update(loss_sup.detach().cpu().item())
 
         else:
             raise ValueError('contrastive method not supported: {}'.
