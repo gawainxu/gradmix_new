@@ -210,8 +210,8 @@ def set_model(opt):
         criterion1 = SupConLoss(temperature=opt.temp)
         criterion2 = SupConLoss(temperature=opt.temp)
     elif opt.method in ["SimCLR_CE"]:
-        criterion1 = SupConLoss(temperature=opt.temp)
-        criterion2 = torch.nn.CrossEntropyLoss()
+        criterion1 = torch.nn.CrossEntropyLoss()
+        criterion2 = SupConLoss(temperature=opt.temp)
 
     if opt.last_model_path is not None:
         print("model loaded")
