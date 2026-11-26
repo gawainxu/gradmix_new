@@ -206,12 +206,12 @@ def set_model(opt):
         model = basic_CNN(feature_dim=opt.feat_dim, in_channels=opt.num_channels)
         linear = None
 
-    if opt.method in ["SimCLR", "SimCLR_CE", "SupCon", "SimCLR_SSL"]:
-        criterion1 = SupConLoss(temperature=opt.temp)
-        criterion2 = SupConLoss(temperature=opt.temp)
-    elif opt.method in ["SimCLR_CE"]:
+    if opt.method == "SimCLR_CE":
         print("Set loss here")
         criterion1 = torch.nn.CrossEntropyLoss()
+        criterion2 = SupConLoss(temperature=opt.temp)
+    else:
+        criterion1 = SupConLoss(temperature=opt.temp)
         criterion2 = SupConLoss(temperature=opt.temp)
 
     if opt.last_model_path is not None:
