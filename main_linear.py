@@ -130,7 +130,8 @@ def set_model(opt):
     if opt.model == "resnet18" or opt.model == "resnet34":
         model = SupConResNet(name=opt.model, feat_dim=opt.feat_dim, in_channels=opt.num_channels)
     elif opt.model == "basic_cnn":
-        model = basic_CNN(feature_dim=opt.feat_dim, in_channels=opt.num_channels)
+        model = basic_CNN(feature_dim=opt.feat_dim, in_channels=opt.num_channels,
+                          num_classes=opt.num_classes)
 
     if opt.backbone_model_path is not None:
         model = load_model(model, opt.backbone_model_path)
