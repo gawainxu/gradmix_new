@@ -94,7 +94,8 @@ def load_model(opt):
     if opt.model == "resnet18" or opt.model == "resnet34":
         model = SupConResNet(name=opt.model, feat_dim=opt.feat_dim, in_channels=opt.num_channels)
     elif opt.model == "basic_cnn":
-        model = basic_CNN(feature_dim=opt.feat_dim, in_channels=opt.num_channels)
+        model = basic_CNN(feature_dim=opt.feat_dim, in_channels=opt.num_channels,
+                          num_classes=opt.num_classes)
 
     ckpt = torch.load(opt.model_path, map_location='cpu')
     state_dict = ckpt['model']
